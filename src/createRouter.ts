@@ -102,19 +102,34 @@ function doNothing() {
    // doNothing
 }
 
-const createPush = (targetRouter: any, parent: any) => (params: any = {}) => {
+const createMemoryPush = (targetRouter: any, parent: any) => (
+   params: any = {}
+) => {
    if (targetRouter.isMatching) {
       targetRouter.unmatchChildren()
    } else {
-      parent.push(params)
+      parent.pushMemory(params)
    }
    targetRouter.match(params)
+}
+
+const createBrowserPush = (history: History) => (
+   targetRouter: any,
+   parent: any
+) => {
+   if (targetRouter.path === undefined) {
+      return createMemoryPush(targetRouter, parent)
+   } else {
+      return (params: any = {}) =>
+         history.push(targetRouter.pathParser.build(params))
+   }
 }
 
 function createNestedRouter(
    config: { path?: string; params?: string[]; nested?: RouterConfig } = {},
    parent: any,
-   parentConfig: any
+   parentConfig: any,
+   createPush: any
 ): any {
    const parentPath = parentConfig.path || ''
    const path = parentPath + config.path
@@ -140,10 +155,11 @@ function createNestedRouter(
       }
    }
    router.push = createPush(router, parent)
+   router.pushMemory = createMemoryPush(router, parent)
    if (config.path !== undefined) {
-      const pathParser = new PathParser(path)
+      router.pathParser = new PathParser(path)
       router._matchesPath = (pathname: string): object | null => {
-         const parsedParams = pathParser.partialTest(pathname)
+         const parsedParams = router.pathParser.partialTest(pathname)
          if (parsedParams !== null) {
             return {
                router,
@@ -169,7 +185,8 @@ function createNestedRouter(
          const nestedRouter = createNestedRouter(
             nested[nestedRouteId],
             router,
-            config
+            config,
+            createPush
          )
          children.push(nestedRouter)
          router[nestedRouteId] = nestedRouter
@@ -188,10 +205,11 @@ export function createMemoryRouter<Config extends RouterConfig>(
       router[routeId] = createNestedRouter(
          config[routeId] as any,
          router,
-         config
+         config,
+         createMemoryPush
       )
    })
-   router.push = () => router.unmatchChildren()
+   router.pushMemory = () => router.unmatchChildren()
    router.match = doNothing
    router.unmatchChildren = () =>
       routeIds.forEach(routeId => {
@@ -205,25 +223,26 @@ export function createBrowserRouter<Config extends RouterConfig>(
    history: History = createBrowserHistory()
 ): Router<Config> {
    const routeIds = Object.keys(config)
-   const routeCount = routeIds.length
    const router = {} as any
    const nestedRouters = [] as Array<Router<any>>
    routeIds.forEach(routeId => {
       const routeConfig = config[routeId] as any
-      const nestedRouter = createNestedRouter(routeConfig, router, config)
+      const nestedRouter = createNestedRouter(
+         routeConfig,
+         router,
+         config,
+         createBrowserPush(history)
+      )
       router[routeId] = nestedRouter
       nestedRouters.push(nestedRouter)
    })
    history.listen(({ pathname }) => {
       const match = findDeepestMatchingRoute(nestedRouters, pathname)
-      if (match) (match as any).router.push(match.params)
+      if (match) (match as any).router.pushMemory(match.params)
    })
-   router.push = doNothing
-   //  router.push = () => router.unmatchChildren()
-   //  router.match = doNothing
-   //  router.unmatchChildren = () =>
-   //     routeIds.forEach(routeId => {
-   //        router[routeId].unmatch()
-   //     })
+   router.pushMemory = () => router.unmatchChildren()
+   router.match = doNothing
+   router.unmatchChildren = () =>
+      nestedRouters.forEach(nestedRouter => (nestedRouter as any).unmatch())
    return router
 }
