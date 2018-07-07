@@ -24,7 +24,7 @@ describe('createBrowserRouter', () => {
       history = createMemoryHistory()
    })
 
-   describe('simple route', () => {
+   describe('simple routes', () => {
       const createRouter = () =>
          createBrowserRouter(
             {
@@ -106,14 +106,24 @@ describe('createBrowserRouter', () => {
             history
          )
       let router: ReturnType<typeof createRouter>
+      let userMatches: any
+      let postMatches: any
 
       beforeEach(() => {
          router = createRouter()
+
+         userMatches = toArray(router.user.match$)
+         postMatches = toArray(router.user.post.match$)
       })
 
       it('matches nested route when history pushes path', () => {
-         history.push('/user/userId/post/postId')
-         expectToMatch(router.user.post, { userId: 'userId', postId: 'postId' })
+         const params = { userId: 'userId', postId: 'postId' }
+         history.push(`/user/${params.userId}/post/${params.postId}`)
+         expectToMatch(router.user, params)
+         expectToMatch(router.user.post, params)
+
+         expect(userMatches).to.deep.equal([undefined, { params }])
+         expect(postMatches).to.deep.equal([undefined, { params }])
       })
    })
 })

@@ -3,6 +3,7 @@ import PathParser from 'path-parser'
 import { BehaviorSubject, Observable } from 'rxjs'
 
 import { equalParams } from './equalParams'
+import { findDeepestMatchingRoute } from './findDeepestMatchingRoute'
 import {
    AnyRouteConfig,
    AnyRouteWithNestedRoutesConfig,
@@ -97,7 +98,7 @@ export type Router<Config extends RouterConfig> = {
             : NoParamsLeafRouter<Config[PageId]>
 }
 
-function doNothing(...params: any[]) {
+function doNothing() {
    // doNothing
 }
 
@@ -110,43 +111,16 @@ const createPush = (targetRouter: any, parent: any) => (params: any = {}) => {
    targetRouter.match(params)
 }
 
-const createMatchPath = (
-   targetConfig: any,
-   targetRouter: any,
-   parentPath = ''
-) => {
-   if (targetConfig.path !== undefined) {
-      const pathParser = new PathParser(parentPath + targetConfig.path)
-      const targetRouteIds =
-         targetConfig.nested === undefined
-            ? []
-            : Object.keys(targetConfig.nested)
-      const targetRouteCount = targetRouteIds.length
-      return (path: string) => {
-         const parsedParams = pathParser.partialTest(path)
-         if (parsedParams !== null) {
-            targetRouter.match(parsedParams)
-            for (let i = 0; i < targetRouteCount; i++) {
-               const routeId = targetRouteIds[i]
-               const routeRouter = targetRouter[routeId]
-               const match = routeRouter._matchPath(path)
-               if (match !== null) {
-                  break
-               }
-            }
-         }
-         return parsedParams
-      }
-   } else return doNothing
-}
-
 function createNestedRouter(
    config: { path?: string; params?: string[]; nested?: RouterConfig } = {},
    parent: any,
    parentConfig: any
 ): any {
+   const parentPath = parentConfig.path || ''
+   const path = parentPath + config.path
    const router = {
-      isMatching: false
+      isMatching: false,
+      path
    } as any
    router.match$ = new BehaviorSubject<undefined | object>(undefined)
    const paramKeys = (config && config.params) || []
@@ -166,7 +140,21 @@ function createNestedRouter(
       }
    }
    router.push = createPush(router, parent)
-   router._matchPath = createMatchPath(config, router, parentConfig.path)
+   if (config.path !== undefined) {
+      const pathParser = new PathParser(path)
+      router._matchesPath = (pathname: string): object | null => {
+         const parsedParams = pathParser.partialTest(pathname)
+         if (parsedParams !== null) {
+            return {
+               router,
+               params: parsedParams
+            }
+         } else return null
+      }
+   } else {
+      router._matchesPath = () => null
+   }
+
    router.unmatch = () => {
       if (router.isMatching) {
          router.unmatchChildren()
@@ -187,6 +175,7 @@ function createNestedRouter(
          router[nestedRouteId] = nestedRouter
       })
    }
+   router.nested = children
    return router
 }
 
@@ -218,20 +207,16 @@ export function createBrowserRouter<Config extends RouterConfig>(
    const routeIds = Object.keys(config)
    const routeCount = routeIds.length
    const router = {} as any
+   const nestedRouters = [] as Array<Router<any>>
    routeIds.forEach(routeId => {
       const routeConfig = config[routeId] as any
       const nestedRouter = createNestedRouter(routeConfig, router, config)
       router[routeId] = nestedRouter
+      nestedRouters.push(nestedRouter)
    })
    history.listen(({ pathname }) => {
-      for (let i = 0; i < routeCount; i++) {
-         const routeId = routeIds[i]
-         const routeRouter = router[routeId]
-         const match = routeRouter._matchPath(pathname)
-         if (match !== null) {
-            break
-         }
-      }
+      const match = findDeepestMatchingRoute(nestedRouters, pathname)
+      if (match) (match as any).router.push(match.params)
    })
    router.push = doNothing
    //  router.push = () => router.unmatchChildren()
