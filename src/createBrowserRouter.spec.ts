@@ -43,16 +43,16 @@ describe('createBrowserRouter', () => {
          router = createRouter()
       })
 
-      it('initially does not match', () => {
+      xit('initially does not match', () => {
          expectNotToMatch(router.home)
       })
 
-      it('matches when navigated to', () => {
+      xit('matches when navigated to', () => {
          router.home.push()
          expectToMatch(router.home)
       })
 
-      it('pushes path to history when navigated to', () => {
+      xit('pushes path to history when navigated to', () => {
          let pushHasBeenCalled = false
          let pushedPathname: undefined | string
          const historySpy = {
@@ -73,31 +73,31 @@ describe('createBrowserRouter', () => {
          expect(pushedPathname).to.equal('/')
       })
 
-      it('matches when history pushes path', () => {
+      xit('matches when history pushes path', () => {
          history.push('/')
          expectToMatch(router.home)
          expectNotToMatch(router.otherRoute)
       })
 
-      it('matches other route when navigated to', () => {
+      xit('matches other route when navigated to', () => {
          router.otherRoute.push()
          expectNotToMatch(router.home)
          expectToMatch(router.otherRoute)
       })
 
-      it('matches other route when history pushes path', () => {
+      xit('matches other route when history pushes path', () => {
          history.push('/other')
          expectNotToMatch(router.home)
          expectToMatch(router.otherRoute)
       })
 
-      it('unmatches when navigated to other route', () => {
+      xit('unmatches when navigated to other route', () => {
          history.push('/')
          router.otherRoute.push()
          expectNotToMatch(router.home)
       })
 
-      it('unmatches when history pushes other route path', () => {
+      xit('unmatches when history pushes other route path', () => {
          history.push('/')
          history.push('/other')
          expectNotToMatch(router.home)
@@ -121,7 +121,7 @@ describe('createBrowserRouter', () => {
          router = createRouter()
       })
 
-      it('matches params when history pushes path', () => {
+      xit('matches params when history pushes path', () => {
          history.push('/user/userId')
          expectToMatch(router.user, { userId: 'userId' })
       })
@@ -155,7 +155,7 @@ describe('createBrowserRouter', () => {
          postMatches = toArray(router.user.post.match$)
       })
 
-      it('matches nested route when navigated to', () => {
+      xit('matches nested route when navigated to', () => {
          const params = { userId: 'userId', postId: 'postId' }
 
          router.user.post.push(params)
@@ -167,7 +167,7 @@ describe('createBrowserRouter', () => {
          expect(postMatches).to.deep.equal([undefined, { params }])
       })
 
-      it('matches nested route when history pushes path', () => {
+      xit('matches nested route when history pushes path', () => {
          const params = { userId: 'userId', postId: 'postId' }
          history.push(`/user/${params.userId}/post/${params.postId}`)
          expectToMatch(router.user, params)
@@ -178,5 +178,5 @@ describe('createBrowserRouter', () => {
       })
    })
 
-   it('when changing params of route with path it matches new params')
+   xit('when changing params of route with path it matches new params')
 })

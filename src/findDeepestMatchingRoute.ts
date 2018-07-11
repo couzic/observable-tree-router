@@ -1,4 +1,4 @@
-import { Router } from './createRouter'
+import { Router } from './TreeRouter'
 
 export function findDeepestMatchingRoute(
    routers: Array<Router<any>>,

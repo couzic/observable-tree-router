@@ -1,6 +1,6 @@
 # observable-tree-router
 
-#### Type-safe, reactive, hierarchical router for single page applications
+#### Type-safe, state-oriented, reactive, hierarchical router for single page applications
 
 ## Table of Contents
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
