@@ -104,7 +104,8 @@ interface RouterNode {
 class NestedMemoryRouter implements RouterNode {
    private readonly _state$: BehaviorSubject<any>
    private readonly _match$: BehaviorSubject<any>
-   private readonly nestedRoutes: NestedMemoryRouter[] = []
+   private readonly nestedRouteIds: string[] = []
+   private readonly nestedRouters: NestedMemoryRouter[] = []
    public get currentState() {
       return this._state$.getValue()
    }
@@ -114,44 +115,84 @@ class NestedMemoryRouter implements RouterNode {
    public get match$() {
       return this._match$
    }
-   constructor(private config: any, private parent: any) {
+   public get isMatching(): boolean {
+      return this._state$.getValue().match !== null
+   }
+   public get isMatchingExact(): boolean {
+      const { match } = this._state$.getValue()
+      return match !== null && match.exact
+   }
+   public get currentParams(): null | object {
+      const { match } = this._state$.getValue()
+      if (match === null || match.params === undefined) return null
+      else return match.params
+   }
+   constructor(
+      private routeId: string,
+      private config: any,
+      private parent: any
+   ) {
       const initialState = { match: null }
-      this._state$ = new BehaviorSubject(initialState)
-      this._match$ = new BehaviorSubject(initialState.match)
       if (config && config.nested) {
-         Object.keys(config.nested).forEach(routeId => {
-            const nestedRouteConfig = config.nested[routeId]
-            const nestedRouter = new NestedMemoryRouter(nestedRouteConfig, this)
-            this.nestedRoutes.push(nestedRouter)
-            ;(this as any)[routeId] = nestedRouter
+         this.nestedRouteIds = Object.keys(config.nested)
+         this.nestedRouteIds.forEach(nestedRouteId => {
+            const nestedRouteConfig = config.nested[nestedRouteId]
+            const nestedRouter = new NestedMemoryRouter(
+               nestedRouteId,
+               nestedRouteConfig,
+               this
+            )
+            this.nestedRouters.push(nestedRouter)
+            ;(initialState as any)[nestedRouteId] = nestedRouter.currentState
+            ;(this as any)[nestedRouteId] = nestedRouter
          })
       }
+      this._state$ = new BehaviorSubject(initialState)
+      this._match$ = new BehaviorSubject(initialState.match)
    }
-   public push(params: any, exact = true) {
+   public push(params: any) {
+      const newState = params
+         ? { match: { exact: true, params } }
+         : { match: { exact: true } }
       if (this.currentState.match) {
          this.unmatchChildren()
       } else {
-         this.parent.onChildPush(params)
+         // TODO Add test for newState => should have nested route states
+         this.parent.onChildPush(this.routeId, newState)
       }
-      const newState = params
-         ? { match: { exact, params } }
-         : { match: { exact } }
+      this.nestedRouteIds.forEach(nestedRouteId => {
+         ;(newState as any)[nestedRouteId] = (this as any)[
+            nestedRouteId
+         ].currentState
+      })
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   public onChildPush(params: any) {
-      this.push(params, false)
+   public onChildPush(routeId: string, newChildState: any) {
+      const newState = {
+         ...this.currentState,
+         match: { exact: false },
+         [routeId]: newChildState
+      }
+      this.parent.onChildPush(this.routeId, newState)
+      this._state$.next(newState)
+      this._match$.next(newState.match)
    }
    public unmatch() {
+      this.unmatchChildren()
       if (this.currentState.match) {
-         const newState = { match: null }
+         const newState = { match: null } as any
+         this.nestedRouteIds.forEach(nestedRouteId => {
+            newState[nestedRouteId] = (this as any)[nestedRouteId].currentState
+         })
          this._state$.next(newState)
          this._match$.next(newState.match)
       }
    }
-
    public unmatchChildren() {
-      //
+      this.nestedRouters.forEach(nestedRouter => {
+         nestedRouter.unmatch()
+      })
    }
 }
 
@@ -159,8 +200,16 @@ export function createMemoryRouter<Config extends RouterConfig>(
    config: Config
 ): TreeRouter<Config> {
    const routeIds = Object.keys(config)
-   const router = {} as any
+   const router = {
+      get currentState() {
+         return this._state$.getValue()
+      },
+      get state$() {
+         return this._state$
+      }
+   } as any
    const nestedRouters: RouterNode[] = []
+   const initialState = {} as any
    routeIds.forEach(routeId => {
       //   router[routeId] = createNestedRouter(
       //      config[routeId] as any,
@@ -168,16 +217,30 @@ export function createMemoryRouter<Config extends RouterConfig>(
       //      config,
       //      createMemoryPush
       //   )
-      const nestedRouter = new NestedMemoryRouter(config[routeId], router)
-      router[routeId] = nestedRouter
+      const nestedRouter = new NestedMemoryRouter(
+         routeId,
+         config[routeId],
+         router
+      )
       nestedRouters.push(nestedRouter)
+      router[routeId] = nestedRouter
+      initialState[routeId] = nestedRouter.currentState
    })
+   router._state$ = new BehaviorSubject(initialState)
+   router._match$ = new BehaviorSubject(initialState.match)
    //   router.pushMemory = () => router.unmatchChildren()
    //    router.match = doNothing
-   router.onChildPush = () => router.unmatchChildren()
-   router.unmatchChildren = () =>
+   router.onChildPush = (childId: string, newChildState: any) => {
       nestedRouters.forEach(nestedRouter => {
          nestedRouter.unmatch()
       })
+      const newState = {} as any
+      routeIds.forEach(routeId => {
+         newState[routeId] = router[routeId].currentState
+      })
+      newState[childId] = newChildState
+      router._state$.next(newState)
+      router._match$.next(newState.match)
+   }
    return router
 }
