@@ -1,7 +1,8 @@
 import { expect } from 'chai'
 import { last } from 'ramda'
 import { merge } from 'rxjs'
-import { mapTo } from 'rxjs/operators'
+import { mapTo, skip } from 'rxjs/operators'
+
 import { createMemoryRouter } from './createMemoryRouter'
 import { route } from './route'
 import { toArray } from './toArray'
@@ -70,15 +71,21 @@ describe('createMemoryRouter', () => {
             match: null
          })
       })
+
       it('updates states and matches in correct order', () => {
-         const order$ = merge(
-            router.home.state$.pipe(mapTo(1)),
-            router.home.match$.pipe(mapTo(2)),
-            router.state$.pipe(mapTo(3)),
-            router.otherRoute.state$.pipe(mapTo(4)),
-            router.otherRoute.match$.pipe(mapTo(5))
+         const orders = toArray(
+            merge(
+               router.home.state$.pipe(mapTo(1)),
+               router.home.match$.pipe(mapTo(2)),
+               router.state$.pipe(mapTo(3)),
+               router.otherRoute.state$.pipe(mapTo(4)),
+               router.otherRoute.match$.pipe(mapTo(5))
+            ).pipe(skip(5))
          )
-         expect(toArray(order$)).to.deep.equal([1, 2, 3, 4, 5])
+         router.home.push()
+         expect(orders).to.deep.equal([3, 1, 2])
+         router.otherRoute.push()
+         expect(orders).to.deep.equal([3, 1, 2, 1, 2, 3, 4, 5])
       })
 
       describe('when navigated to', () => {
@@ -305,7 +312,7 @@ describe('createMemoryRouter', () => {
          childMatches = toArray(router.parent.child.match$)
       })
 
-      xit('matches params on both routes when navigating to child route', () => {
+      it('matches params on both routes when navigating to child route', () => {
          const params = {
             parentParam: 'parentParam',
             childParam: 'childParam'
@@ -315,7 +322,7 @@ describe('createMemoryRouter', () => {
          expectToMatchExact(router.parent.child, params)
       })
 
-      xit('matches params on both routes when child route changes params', () => {
+      it('matches params on both routes when child route changes params', () => {
          const params1 = {
             parentParam: 'parentParam1',
             childParam: 'childParam1'
@@ -326,16 +333,19 @@ describe('createMemoryRouter', () => {
          }
          router.parent.child.push(params1)
          router.parent.child.push(params2)
-         expectToMatch(router.parent, params2)
-         expectToMatch(router.parent.child, params2)
+         //  expectToMatch(router.parent, params2)
+         expectToMatchExact(router.parent.child, params2)
 
-         const expectedMatches = [
-            undefined,
-            { params: params1 },
-            { params: params2 }
-         ]
-         expect(parentMatches).to.deep.equal(expectedMatches)
-         expect(childMatches).to.deep.equal(expectedMatches)
+         //  expect(parentMatches).to.deep.equal([
+         //     null,
+         //     { exact: false, params: params1 },
+         //     { exact: false, params: params2 }
+         //  ])
+         expect(childMatches).to.deep.equal([
+            null,
+            { exact: true, params: params1 },
+            { exact: true, params: params2 }
+         ])
       })
    })
 
@@ -375,38 +385,45 @@ describe('createMemoryRouter', () => {
          otherRouteMatches = toArray(router.otherRoute.match$)
       })
 
-      xit('matches grandparent when navigating to parent route', () => {
+      it('matches grandparent when navigating to parent route', () => {
          router.grandparent.parent.push()
-         //  expectToMatch(router.grandparent)
+         expectToMatch(router.grandparent)
 
-         //  expect(grandparentMatches).to.deep.equal([undefined, { exact: false }])
+         expect(grandparentStates).to.deep.equal([
+            { match: null, parent: { match: null, child: { match: null } } },
+            {
+               match: { exact: false },
+               parent: { match: { exact: true }, child: { match: null } }
+            }
+         ])
+         expect(parentStates).to.deep.equal([
+            { match: null, child: { match: null } },
+            { match: { exact: true }, child: { match: null } }
+         ])
+         expect(childStates).to.deep.equal([{ match: null }])
       })
 
-      xit('matches grandparent when navigating to child route', () => {
+      it('matches grandparent when navigating to child route', () => {
          router.grandparent.parent.child.push()
          expectToMatch(router.grandparent)
 
-         expect(grandparentMatches).to.deep.equal([undefined, { exact: false }])
+         expect(grandparentMatches).to.deep.equal([null, { exact: false }])
       })
 
-      xit('unmatches other route when navigating to child route', () => {
+      it('unmatches other route when navigating to child route', () => {
          router.otherRoute.push()
          router.grandparent.parent.child.push()
 
          expectToMatch(router.grandparent)
          expectToMatch(router.grandparent.parent)
-         expectToMatch(router.grandparent.parent.child)
+         expectToMatchExact(router.grandparent.parent.child)
          expectNotToMatch(router.otherRoute)
 
-         const expectedMatches = [undefined, { exact: false }]
+         const expectedMatches = [null, { exact: false }]
          expect(grandparentMatches).to.deep.equal(expectedMatches)
          expect(parentMatches).to.deep.equal(expectedMatches)
-         expect(childMatches).to.deep.equal(expectedMatches)
-         expect(otherRouteMatches).to.deep.equal([
-            undefined,
-            { exact: false },
-            undefined
-         ])
+         expect(childMatches).to.deep.equal([null, { exact: true }])
+         expect(otherRouteMatches).to.deep.equal([null, { exact: true }, null])
       })
    })
 })
