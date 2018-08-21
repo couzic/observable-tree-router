@@ -159,8 +159,6 @@ class NestedMemoryRouter implements RouterNode {
          if (!this.currentState.match.exact) {
             this.unmatchChildren()
          }
-      } else {
-         // TODO Add test for newState => should have nested route states
       }
       this._parentRouter.onChildPush(this._routeId, newState)
       this._nestedRouteIds.forEach(nestedRouteId => {
