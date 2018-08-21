@@ -176,7 +176,17 @@ class NestedMemoryRouter implements RouterNode {
          ...this.currentState,
          [routeId]: newChildState
       } as any
+      if (this.currentState.match !== null && !this.currentState.match.exact) {
+         this.unmatchOtherRoutes(routeId)
+      }
       if (this._config.params === undefined) {
+         if (
+            this.currentState.match !== null &&
+            !this.currentState.match.exact
+         ) {
+            // Already matching child, eject
+            return
+         }
          newState.match = { exact: false }
       } else {
          const newParams = {} as any
@@ -184,7 +194,7 @@ class NestedMemoryRouter implements RouterNode {
             newParams[param] = newChildState.match.params[param]
          })
          if (
-            this.currentState.match &&
+            this.currentState.match !== null &&
             equalParams(this._config.params, this.currentParams, newParams)
          ) {
             // No params changed at this level, eject
@@ -195,6 +205,11 @@ class NestedMemoryRouter implements RouterNode {
       this._parentRouter.onChildPush(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
+   }
+   private unmatchOtherRoutes(routeId: string) {
+      this._nestedRouters
+         .filter(router => router._routeId !== routeId)
+         .forEach(router => router.unmatch())
    }
    public unmatch() {
       if (this.currentState.match) {

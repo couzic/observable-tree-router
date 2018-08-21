@@ -291,6 +291,50 @@ describe('createMemoryRouter', () => {
       })
    })
 
+   describe('given parent with two child routes', () => {
+      const createChildRouter = () =>
+         createMemoryRouter({
+            parent: route({
+               nested: {
+                  firstChild: route(),
+                  secondChild: route()
+               }
+            })
+         })
+      let router: ReturnType<typeof createChildRouter>
+      let parentStates: any
+      let parentMatches: any
+      let firstChildStates: any
+      let firstChildMatches: any
+
+      beforeEach(() => {
+         router = createChildRouter()
+         parentStates = toArray(router.parent.state$)
+         parentMatches = toArray(router.parent.match$)
+         firstChildStates = toArray(router.parent.firstChild.state$)
+         firstChildMatches = toArray(router.parent.firstChild.match$)
+      })
+
+      describe('when navigating from first child to second child', () => {
+         beforeEach(() => {
+            router.parent.firstChild.push()
+            router.parent.secondChild.push()
+         })
+         it('parent route does not emit new state', () => {
+            expect(parentStates).to.have.length(2)
+            expect(parentMatches).to.deep.equal([null, { exact: false }])
+         })
+         it('first child unmatches', () => {
+            expect(firstChildStates).to.have.length(3)
+            expect(firstChildMatches).to.deep.equal([
+               null,
+               { exact: true },
+               null
+            ])
+         })
+      })
+   })
+
    describe('parent and child routes with params', () => {
       const createChildRouter = () =>
          createMemoryRouter({
