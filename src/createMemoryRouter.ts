@@ -1,5 +1,6 @@
 import { BehaviorSubject } from 'rxjs'
 
+import { equalParams } from './equalParams'
 import { RouterConfig } from './RouterConfig'
 import { TreeRouter } from './TreeRouter'
 
@@ -128,9 +129,9 @@ class NestedMemoryRouter implements RouterNode {
       else return match.params
    }
    constructor(
-      private _routeId: string,
-      private _config: any,
-      private _parentRouter: any
+      private readonly _routeId: string,
+      private readonly _config: any,
+      private readonly _parentRouter: any
    ) {
       const initialState = { match: null }
       if (_config && _config.nested) {
@@ -160,8 +161,8 @@ class NestedMemoryRouter implements RouterNode {
          }
       } else {
          // TODO Add test for newState => should have nested route states
-         this._parentRouter.onChildPush(this._routeId, newState)
       }
+      this._parentRouter.onChildPush(this._routeId, newState)
       this._nestedRouteIds.forEach(nestedRouteId => {
          ;(newState as any)[nestedRouteId] = (this as any)[
             nestedRouteId
@@ -173,11 +174,23 @@ class NestedMemoryRouter implements RouterNode {
    public onChildPush(routeId: string, newChildState: any) {
       const newState = {
          ...this.currentState,
-         match: { exact: false },
          [routeId]: newChildState
-      }
-      if (newChildState.match.params !== undefined) {
-         newState.match.params = newChildState.match.params
+      } as any
+      if (this._config.params === undefined) {
+         newState.match = { exact: false }
+      } else {
+         const newParams = {} as any
+         this._config.params.forEach((param: string) => {
+            newParams[param] = newChildState.match.params[param]
+         })
+         if (
+            this.currentState.match &&
+            equalParams(this._config.params, this.currentParams, newParams)
+         ) {
+            // No params changed at this level, eject
+            return
+         }
+         newState.match = { exact: false, params: newParams }
       }
       this._parentRouter.onChildPush(this._routeId, newState)
       this._state$.next(newState)

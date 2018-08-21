@@ -313,38 +313,47 @@ describe('createMemoryRouter', () => {
       })
 
       it('matches params on both routes when navigating to child route', () => {
-         const params = {
-            parentParam: 'parentParam',
+         const parentParams = {
+            parentParam: 'parentParam'
+         }
+         const childParams = {
+            ...parentParams,
             childParam: 'childParam'
          }
-         router.parent.child.push(params)
-         expectToMatch(router.parent, params)
-         expectToMatchExact(router.parent.child, params)
+         router.parent.child.push(childParams)
+         expectToMatch(router.parent, parentParams)
+         expectToMatchExact(router.parent.child, childParams)
       })
 
       it('matches params on both routes when child route changes params', () => {
-         const params1 = {
-            parentParam: 'parentParam1',
+         const parentParams1 = {
+            parentParam: 'parentParam1'
+         }
+         const childParams1 = {
+            ...parentParams1,
             childParam: 'childParam1'
          }
-         const params2 = {
-            parentParam: 'parentParam2',
+         const parentParams2 = {
+            parentParam: 'parentParam2'
+         }
+         const childParams2 = {
+            ...parentParams2,
             childParam: 'childParam2'
          }
-         router.parent.child.push(params1)
-         router.parent.child.push(params2)
-         //  expectToMatch(router.parent, params2)
-         expectToMatchExact(router.parent.child, params2)
+         router.parent.child.push(childParams1)
+         router.parent.child.push(childParams2)
+         expectToMatch(router.parent, parentParams2)
+         expectToMatchExact(router.parent.child, childParams2)
 
-         //  expect(parentMatches).to.deep.equal([
-         //     null,
-         //     { exact: false, params: params1 },
-         //     { exact: false, params: params2 }
-         //  ])
+         expect(parentMatches).to.deep.equal([
+            null,
+            { exact: false, params: parentParams1 },
+            { exact: false, params: parentParams2 }
+         ])
          expect(childMatches).to.deep.equal([
             null,
-            { exact: true, params: params1 },
-            { exact: true, params: params2 }
+            { exact: true, params: childParams1 },
+            { exact: true, params: childParams2 }
          ])
       })
    })
