@@ -33,7 +33,19 @@ const expectToMatchExact = (router: any, params: any = undefined) => {
 }
 
 describe('createMemoryRouter', () => {
-   describe('with simple route', () => {
+   const r = createMemoryRouter({
+      home: route(),
+      epj: route({
+         params: ['id'],
+         nested: { profile: route() }
+      })
+   })
+
+   r.epj.profile.push({
+      id: '123'
+   })
+
+   describe('single route', () => {
       const createRouter = () =>
          createMemoryRouter({
             home: route(),
@@ -115,6 +127,19 @@ describe('createMemoryRouter', () => {
             ])
          })
 
+         describe('when navigated to again', () => {
+            beforeEach(() => {
+               router.home.push()
+            })
+            it('ignores call', () => {
+               expect(homeMatches).to.deep.equal([null, { exact: true }])
+               expect(homeStates).to.deep.equal([
+                  { match: null },
+                  { match: { exact: true } }
+               ])
+            })
+         })
+
          describe('when navigated to other route', () => {
             beforeEach(() => {
                router.otherRoute.push()
@@ -171,20 +196,39 @@ describe('createMemoryRouter', () => {
             user: route({ params: ['userId'] })
          })
       let router: ReturnType<typeof createParamsRouter>
+      let states: any
+      let matches: any
 
       beforeEach(() => {
          router = createParamsRouter()
+         states = toArray(router.user.state$)
+         matches = toArray(router.user.match$)
       })
 
-      it('matches params when navigated to', () => {
-         const params = { userId: 'userId' }
-         router.user.push(params)
-         expectToMatchExact(router.user, params)
+      describe('when navigated to', () => {
+         const pushedParams = {
+            userId: 'userId'
+         }
+         beforeEach(() => {
+            router.user.push(pushedParams)
+         })
+
+         it('matches params when navigated to', () => {
+            expectToMatchExact(router.user, pushedParams)
+         })
+
+         describe('when navigated to again', () => {
+            beforeEach(() => {
+               router.user.push(pushedParams)
+            })
+            it('ignores call', () => {
+               expect(states).to.have.length(2)
+               expect(matches).to.have.length(2)
+            })
+         })
       })
 
       it('matches new params when params change', () => {
-         const matches = toArray(router.user.match$)
-
          const params1 = { userId: '1' }
          router.user.push(params1)
          const params2 = { userId: '2' }
@@ -289,6 +333,40 @@ describe('createMemoryRouter', () => {
          ])
          expect(childMatches).to.deep.equal([null, { exact: true }, null])
       })
+
+      it('matches child when navigated to after parent', () => {
+         router.parent.push()
+         router.parent.child.push()
+
+         expect(parentStates).to.deep.equal([
+            { match: null, child: { match: null } },
+            { match: { exact: true }, child: { match: null } },
+            { match: { exact: false }, child: { match: { exact: true } } }
+         ])
+         expect(parentMatches).to.deep.equal([
+            null,
+            { exact: true },
+            { exact: false }
+         ])
+
+         expect(childStates).to.deep.equal([
+            { match: null },
+            { match: { exact: true } }
+         ])
+         expect(childMatches).to.deep.equal([null, { exact: true }])
+      })
+
+      //   it('matches parent when navigated to after child', () => {
+      //      router.parent.child.push()
+      //      router.parent.push()
+
+      //      expect(parentStates).to.deep.equal([
+      //         { match: null, child: { match: null } },
+      //         { match: { exact: false }, child: { match: { exact: true } } },
+      //         { match: { exact: true }, child: { match: null } }
+      //      ])
+      //      expect(parentMatches).to.deep.equal([null, { exact: true }, null])
+      //   })
    })
 
    describe('given parent with two child routes', () => {
@@ -320,9 +398,19 @@ describe('createMemoryRouter', () => {
             router.parent.firstChild.push()
             router.parent.secondChild.push()
          })
-         it('parent route does not emit new state', () => {
-            expect(parentStates).to.have.length(2)
+         it('parent route does not emit new match', () => {
+            expect(parentMatches).to.have.length(2)
             expect(parentMatches).to.deep.equal([null, { exact: false }])
+         })
+         xit('parent route updates state', () => {
+            expect(parentStates).to.have.length(3)
+            expect(
+               parentStates.map((_: any) => _.firstChild.match)
+            ).to.deep.equal([null, { exact: true }, null])
+            expect(
+               parentStates.map((_: any) => _.secondChild.match)
+            ).to.deep.equal([null, null, { exact: true }])
+            // console.log(router.parent.currentState)
          })
          it('first child unmatches', () => {
             expect(firstChildStates).to.have.length(3)
@@ -354,6 +442,15 @@ describe('createMemoryRouter', () => {
          router = createChildRouter()
          parentMatches = toArray(router.parent.match$)
          childMatches = toArray(router.parent.child.match$)
+      })
+
+      it('has correct state when parent pushed twice with different params', () => {
+         router.parent.push({ parentParam: 'parentParam1' })
+         router.parent.push({ parentParam: 'parentParam2' })
+         expect(router.parent.currentState).to.deep.equal({
+            match: { exact: true, params: { parentParam: 'parentParam2' } },
+            child: { match: null }
+         })
       })
 
       it('matches params on both routes when navigating to child route', () => {
@@ -477,6 +574,61 @@ describe('createMemoryRouter', () => {
          expect(parentMatches).to.deep.equal(expectedMatches)
          expect(childMatches).to.deep.equal([null, { exact: true }])
          expect(otherRouteMatches).to.deep.equal([null, { exact: true }, null])
+      })
+
+      it('updates grandparent state when navigating to child route after parent', () => {
+         router.grandparent.parent.push()
+         router.grandparent.parent.child.push()
+         expect(router.grandparent.currentState.parent).to.equal(
+            router.grandparent.parent.currentState
+         )
+      })
+   })
+
+   describe('grandparent route with params', () => {
+      const createGrandparentRouter = () =>
+         createMemoryRouter({
+            grandparent: route({
+               params: ['param'],
+               nested: {
+                  parent: route({
+                     nested: {
+                        child: route()
+                     }
+                  })
+               }
+            }),
+            otherRoute: route()
+         })
+      let router: ReturnType<typeof createGrandparentRouter>
+      let grandparentStates: any
+      let grandparentMatches: any
+      let parentStates: any
+      let parentMatches: any
+      let childStates: any
+      let childMatches: any
+      let otherRouteStates: any
+      let otherRouteMatches: any
+
+      beforeEach(() => {
+         router = createGrandparentRouter()
+         grandparentStates = toArray(router.grandparent.state$)
+         grandparentMatches = toArray(router.grandparent.match$)
+         parentStates = toArray(router.grandparent.parent.state$)
+         parentMatches = toArray(router.grandparent.parent.match$)
+         childStates = toArray(router.grandparent.parent.child.state$)
+         childMatches = toArray(router.grandparent.parent.child.match$)
+         otherRouteStates = toArray(router.otherRoute.state$)
+         otherRouteMatches = toArray(router.otherRoute.match$)
+      })
+
+      it('updates grandparent state when navigating to child route after parent', () => {
+         router.grandparent.parent.push({ param: 'param' })
+         router.grandparent.parent.child.push({ param: 'param' })
+         expect(router.grandparent.currentState.parent).to.deep.equal({
+            match: { exact: false, params: { param: 'param' } },
+            child: { match: { exact: true, params: { param: 'param' } } }
+         })
       })
    })
 })

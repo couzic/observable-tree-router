@@ -97,16 +97,12 @@ function doNothing() {
 //    return router
 // }
 
-interface RouterNode {
-   unmatch(): void
-   unmatchChildren(): void
-}
-
-class NestedMemoryRouter implements RouterNode {
+class NestedMemoryRouter {
    private readonly _state$: BehaviorSubject<any>
    private readonly _match$: BehaviorSubject<any>
    private readonly _nestedRouteIds: string[] = []
    private readonly _nestedRouters: NestedMemoryRouter[] = []
+   private readonly _params: string[] | undefined
    public get currentState() {
       return this._state$.getValue()
    }
@@ -123,6 +119,10 @@ class NestedMemoryRouter implements RouterNode {
       const { match } = this._state$.getValue()
       return match !== null && match.exact
    }
+   public get isMatchingChild(): boolean {
+      const { match } = this.state$.getValue()
+      return match !== null && !match.exact
+   }
    public get currentParams(): null | object {
       const { match } = this._state$.getValue()
       if (match === null || match.params === undefined) return null
@@ -130,14 +130,23 @@ class NestedMemoryRouter implements RouterNode {
    }
    constructor(
       private readonly _routeId: string,
-      private readonly _config: any,
-      private readonly _parentRouter: any
+      config: any,
+      private readonly _parentRouter: NestedMemoryRouter
    ) {
+      if (
+         _parentRouter._params !== undefined ||
+         (config && config.params !== undefined && config.params.length > 0)
+      ) {
+         this._params = [
+            ...(_parentRouter._params || []),
+            ...((config && config.params) || [])
+         ]
+      }
       const initialState = { match: null }
-      if (_config && _config.nested) {
-         this._nestedRouteIds = Object.keys(_config.nested)
+      if (config && config.nested) {
+         this._nestedRouteIds = Object.keys(config.nested)
          this._nestedRouteIds.forEach(nestedRouteId => {
-            const nestedRouteConfig = _config.nested[nestedRouteId]
+            const nestedRouteConfig = config.nested[nestedRouteId]
             const nestedRouter = new NestedMemoryRouter(
                nestedRouteId,
                nestedRouteConfig,
@@ -152,64 +161,196 @@ class NestedMemoryRouter implements RouterNode {
       this._match$ = new BehaviorSubject(initialState.match)
    }
    public push(params: any) {
-      const newState = params
-         ? { match: { exact: true, params } }
-         : { match: { exact: true } }
-      if (this.currentState.match) {
-         if (!this.currentState.match.exact) {
-            this.unmatchChildren()
-         }
+      if (this.isMatchingExact) {
+         this.handlePushWhenMatchingExact(params)
+      } else if (this.isMatchingChild) {
+         this.handlePushWhenMatchingChild(params)
+      } else {
+         this.handlePushWhenNotMatching(params)
       }
-      this._parentRouter.onChildPush(this._routeId, newState)
-      this._nestedRouteIds.forEach(nestedRouteId => {
-         ;(newState as any)[nestedRouteId] = (this as any)[
-            nestedRouteId
-         ].currentState
-      })
+   }
+   private handlePushWhenMatchingExact(params: any) {
+      if (params === undefined) return
+      if (
+         this._params !== undefined &&
+         equalParams(this._params, this.currentParams, params)
+      )
+         return
+      const newState = {
+         ...this.currentState,
+         match: { exact: true, params }
+      }
+      this._parentRouter.onChildStateChanged(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   public onChildPush(routeId: string, newChildState: any) {
+   private handlePushWhenMatchingChild(params: any) {
+      this.unmatchChildren()
+      const newState = params
+         ? {
+              match: { exact: true, params },
+              ...this.retrieveNestedRouteStates()
+           }
+         : { match: { exact: true }, ...this.retrieveNestedRouteStates() }
+      this._parentRouter.onChildStateChanged(this._routeId, newState)
+      this._state$.next(newState)
+      this._match$.next(newState.match)
+   }
+   private handlePushWhenNotMatching(params: any) {
+      const newState = params
+         ? {
+              match: { exact: true, params },
+              ...this.retrieveNestedRouteStates()
+           }
+         : { match: { exact: true }, ...this.retrieveNestedRouteStates() }
+      this._parentRouter.onChildMatch(this._routeId, newState)
+      this._state$.next(newState)
+      this._match$.next(newState.match)
+   }
+   private retrieveNestedRouteStates() {
+      const nestedStates = {} as any
+      this._nestedRouteIds.forEach(nestedRouteId => {
+         nestedStates[nestedRouteId] = (this as any)[nestedRouteId].currentState
+      })
+      return nestedStates
+   }
+   private onChildMatch(routeId: string, newChildState: any) {
+      if (this.isMatchingExact) {
+         this.handleChildMatchWhenMatchingExact(routeId, newChildState)
+      } else if (this.isMatchingChild) {
+         this.handleChildMatchWhenMatchingChild(routeId, newChildState)
+      } else {
+         this.handleChildMatchWhenNotMatching(routeId, newChildState)
+      }
+   }
+   private handleChildMatchWhenMatchingExact(
+      routeId: string,
+      newChildState: any
+   ) {
       const newState = {
          ...this.currentState,
          [routeId]: newChildState
       } as any
-      if (this.currentState.match !== null && !this.currentState.match.exact) {
-         this.unmatchOtherRoutes(routeId)
+      if (this._params === undefined) {
+         newState.match = { exact: false }
+      } else {
+         const newParams = {} as any
+         this._params.forEach((param: string) => {
+            newParams[param] = newChildState.match.params[param]
+         })
+         newState.match = { exact: false, params: newParams }
       }
-      if (this._config.params === undefined) {
-         if (
-            this.currentState.match !== null &&
-            !this.currentState.match.exact
-         ) {
-            // Already matching child, eject
+      this._parentRouter.onChildStateChanged(this._routeId, newState)
+      this._state$.next(newState)
+      this._match$.next(newState.match)
+   }
+   private handleChildMatchWhenMatchingChild(
+      routeId: string,
+      newChildState: any
+   ) {
+      this.unmatchOtherChildren(routeId)
+      const newState = {
+         ...this.currentState,
+         [routeId]: newChildState
+      } as any
+      // TODO If no params or params have not changed, only update state while keeping same match reference. Else, update state AND match
+      if (this._params === undefined) {
+         if (this.isMatchingChild) {
+            // TODO state still has to be updated (match can still be ignored though)
+            // TEST When child state changes but parent is not impacted:
+            // 1. Parent state changes
+            // 2. Parent match does not change
+            // 3. Parent state.match keeps same reference
             return
          }
          newState.match = { exact: false }
       } else {
          const newParams = {} as any
-         this._config.params.forEach((param: string) => {
+         this._params.forEach((param: string) => {
             newParams[param] = newChildState.match.params[param]
          })
          if (
             this.currentState.match !== null &&
-            equalParams(this._config.params, this.currentParams, newParams)
+            equalParams(this._params, this.currentParams, newParams)
          ) {
-            // No params changed at this level, eject
+            // TODO Do NOT eject, state still has to be updated (match can still be ignored though)
+            // TEST When child state changes but parent is not impacted:
+            // 1. Parent state changes
+            // 2. Parent match does not change
+            // 3. Parent state.match keeps same reference
             return
          }
          newState.match = { exact: false, params: newParams }
       }
-      this._parentRouter.onChildPush(this._routeId, newState)
+      this._parentRouter.onChildMatch(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   private unmatchOtherRoutes(routeId: string) {
+   private handleChildMatchWhenNotMatching(
+      routeId: string,
+      newChildState: any
+   ) {
+      if (this.isMatchingChild) {
+         this.unmatchOtherChildren(routeId)
+      }
+      const newState = {
+         ...this.currentState,
+         [routeId]: newChildState
+      } as any
+      if (this._params === undefined) {
+         if (this.isMatchingChild) {
+            // TODO Do NOT eject, state still has to be updated (match can still be ignored though)
+            // TEST When child state changes but parent is not impacted:
+            // 1. Parent state changes
+            // 2. Parent match does not change
+            // 3. Parent state.match keeps same reference
+            return
+         }
+         newState.match = { exact: false }
+      } else {
+         const newParams = {} as any
+         this._params.forEach((param: string) => {
+            newParams[param] = newChildState.match.params[param]
+         })
+         if (
+            this.currentState.match !== null &&
+            equalParams(this._params, this.currentParams, newParams)
+         ) {
+            // TODO Do NOT eject, state still has to be updated (match can still be ignored though)
+            // TEST When child state changes but parent is not impacted:
+            // 1. Parent state changes
+            // 2. Parent match does not change
+            // 3. Parent state.match keeps same reference
+            return
+         }
+         newState.match = { exact: false, params: newParams }
+      }
+      this._parentRouter.onChildMatch(this._routeId, newState)
+      this._state$.next(newState)
+      this._match$.next(newState.match)
+   }
+   private onChildStateChanged(routeId: string, newChildState: any) {
+      const newState = {
+         ...this.currentState,
+         [routeId]: newChildState
+      } as any
+      if (this._params !== undefined) {
+         const newParams = {} as any
+         this._params.forEach((param: string) => {
+            newParams[param] = newChildState.match.params[param]
+         })
+         newState.match = { exact: false, params: newParams }
+      }
+      this._parentRouter.onChildStateChanged(this._routeId, newState)
+      this._state$.next(newState)
+      this._match$.next(newState.match)
+   }
+   private unmatchOtherChildren(routeId: string) {
       this._nestedRouters
          .filter(router => router._routeId !== routeId)
          .forEach(router => router.unmatch())
    }
-   public unmatch() {
+   private unmatch() {
       if (this.currentState.match) {
          this.unmatchChildren()
          const newState = { match: null } as any
@@ -220,7 +361,7 @@ class NestedMemoryRouter implements RouterNode {
          this._match$.next(newState.match)
       }
    }
-   public unmatchChildren() {
+   private unmatchChildren() {
       this._nestedRouters.forEach(nestedRouter => {
          nestedRouter.unmatch()
       })
@@ -239,7 +380,7 @@ export function createMemoryRouter<Config extends RouterConfig>(
          return this._state$
       }
    } as any
-   const nestedRouters: RouterNode[] = []
+   const nestedRouters: any[] = []
    const initialState = {} as any
    routeIds.forEach(routeId => {
       const nestedRouter = new NestedMemoryRouter(
@@ -254,7 +395,7 @@ export function createMemoryRouter<Config extends RouterConfig>(
    router._state$ = new BehaviorSubject(initialState)
    //   router.pushMemory = () => router.unmatchChildren()
    //    router.match = doNothing
-   router.onChildPush = (childId: string, newChildState: any) => {
+   router.onChildMatch = (childId: string, newChildState: any) => {
       router.unmatchOtherBranches(childId)
       const newState = {} as any
       routeIds.forEach(routeId => {
@@ -262,6 +403,9 @@ export function createMemoryRouter<Config extends RouterConfig>(
       })
       newState[childId] = newChildState
       router._state$.next(newState)
+   }
+   router.onChildStateChanged = () => {
+      // TODO implement
    }
    router.unmatchOtherBranches = (routeId: string) => {
       routeIds.filter(id => id !== routeId).forEach(id => router[id].unmatch())
