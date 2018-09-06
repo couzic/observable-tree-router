@@ -180,7 +180,7 @@ class NestedMemoryRouter {
          ...this.currentState,
          match: { exact: true, params }
       }
-      this._parentRouter.onChildStateChanged(this._routeId, newState)
+      this._parentRouter.onChildMatchAgain(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
@@ -218,7 +218,7 @@ class NestedMemoryRouter {
       if (this.isMatchingExact) {
          this.handleChildMatchWhenMatchingExact(routeId, newChildState)
       } else if (this.isMatchingChild) {
-         this.handleChildMatchWhenMatchingChild(routeId, newChildState)
+         this.handleChildMatchWhenMatchingOtherChild(routeId, newChildState)
       } else {
          this.handleChildMatchWhenNotMatching(routeId, newChildState)
       }
@@ -240,59 +240,46 @@ class NestedMemoryRouter {
          })
          newState.match = { exact: false, params: newParams }
       }
-      this._parentRouter.onChildStateChanged(this._routeId, newState)
+      this._parentRouter.onChildMatchAgain(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   private handleChildMatchWhenMatchingChild(
+   private handleChildMatchWhenMatchingOtherChild(
       routeId: string,
       newChildState: any
    ) {
-      this.unmatchOtherChildren(routeId)
+      this.unmatchChildren()
       const newState = {
-         ...this.currentState,
+         match: this.currentState.match,
+         ...this.retrieveNestedRouteStates(),
          [routeId]: newChildState
       } as any
-      // TODO If no params or params have not changed, only update state while keeping same match reference. Else, update state AND match
       if (this._params === undefined) {
-         if (this.isMatchingChild) {
-            // TODO state still has to be updated (match can still be ignored though)
-            // TEST When child state changes but parent is not impacted:
-            // 1. Parent state changes
-            // 2. Parent match does not change
-            // 3. Parent state.match keeps same reference
-            return
-         }
-         newState.match = { exact: false }
+         this._parentRouter.onChildStateChanged(this._routeId, newState)
+         this._state$.next(newState)
       } else {
          const newParams = {} as any
          this._params.forEach((param: string) => {
             newParams[param] = newChildState.match.params[param]
          })
-         if (
-            this.currentState.match !== null &&
-            equalParams(this._params, this.currentParams, newParams)
-         ) {
-            // TODO Do NOT eject, state still has to be updated (match can still be ignored though)
-            // TEST When child state changes but parent is not impacted:
-            // 1. Parent state changes
-            // 2. Parent match does not change
-            // 3. Parent state.match keeps same reference
-            return
+         if (equalParams(this._params, this.currentParams, newParams)) {
+            this._parentRouter.onChildStateChanged(this._routeId, newState)
+            this._state$.next(newState)
+         } else {
+            newState.match = { exact: false, params: newParams }
+            this._parentRouter.onChildMatchAgain(this._routeId, newState)
+            this._state$.next(newState)
+            this._match$.next(newState.match)
+            // TODO update state AND match
+            // TODO test grandparent
+            // newState.match = { exact: false, params: newParams }
          }
-         newState.match = { exact: false, params: newParams }
       }
-      this._parentRouter.onChildMatch(this._routeId, newState)
-      this._state$.next(newState)
-      this._match$.next(newState.match)
    }
    private handleChildMatchWhenNotMatching(
       routeId: string,
       newChildState: any
    ) {
-      if (this.isMatchingChild) {
-         this.unmatchOtherChildren(routeId)
-      }
       const newState = {
          ...this.currentState,
          [routeId]: newChildState
@@ -343,12 +330,33 @@ class NestedMemoryRouter {
       }
       this._parentRouter.onChildStateChanged(this._routeId, newState)
       this._state$.next(newState)
-      this._match$.next(newState.match)
+      // this._match$.next(newState.match) // TODO Delete !!!
    }
-   private unmatchOtherChildren(routeId: string) {
-      this._nestedRouters
-         .filter(router => router._routeId !== routeId)
-         .forEach(router => router.unmatch())
+   private onChildMatchAgain(routeId: string, newChildState: any) {
+      const newState = {
+         ...this.currentState,
+         [routeId]: newChildState
+      } as any
+      if (this._params === undefined) {
+         // TODO Test state updates
+         this._state$.next(newState)
+         // TODO Test great grandparent FOR
+         // this._parentRouter.onChildStateChanged(this._routeId, newState) || onchildmatchagain
+      } else {
+         const newParams = {} as any
+         this._params.forEach((param: string) => {
+            newParams[param] = newChildState.match.params[param]
+         })
+         // TODO Check if params have changed. If not, keep previous match reference
+         // If params have changed:
+         newState.match = { exact: false, params: newParams }
+         this._state$.next(newState)
+         this._match$.next(newState.match)
+         // else
+         //   this._state$.next(newState)
+         // TODO Test great grandparent FOR
+         //  this._parentRouter.onChildStateChanged(this._routeId, newState) || onchildmatchagain
+      }
    }
    private unmatch() {
       if (this.currentState.match) {
@@ -404,9 +412,8 @@ export function createMemoryRouter<Config extends RouterConfig>(
       newState[childId] = newChildState
       router._state$.next(newState)
    }
-   router.onChildStateChanged = () => {
-      // TODO implement
-   }
+   router.onChildStateChanged = doNothing
+   router.onChildMatchAgain = doNothing
    router.unmatchOtherBranches = (routeId: string) => {
       routeIds.filter(id => id !== routeId).forEach(id => router[id].unmatch())
    }
