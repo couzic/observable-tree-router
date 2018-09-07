@@ -5,97 +5,8 @@ import { RouterConfig } from './RouterConfig'
 import { TreeRouter } from './TreeRouter'
 
 function doNothing() {
-   // doNothing
+   return
 }
-
-// const createMemoryPush = (targetRouter: any, parent: any) => (
-//    params: any = {}
-// ) => {
-//    if (targetRouter.isMatching) {
-//       targetRouter.unmatchChildren()
-//    } else {
-//       parent.pushMemory(params)
-//    }
-//    targetRouter.match(params)
-// }
-
-// function createNestedRouter(
-//    config: { path?: string; params?: string[]; nested?: RouterConfig } = {},
-//    parent: any,
-//    parentConfig: any,
-//    createPush: any
-// ): any {
-//    const parentPath = parentConfig.path || ''
-//    const path = parentPath + config.path
-//    const router = {
-//       currentState: { isMatching: false },
-//       path
-//    } as any
-//    router.match$ = new BehaviorSubject<undefined | object>(undefined)
-//    const paramKeys = (config && config.params) || []
-//    const children = [] as any[]
-//    router.unmatchChildren = () => children.forEach(child => child.unmatch())
-//    router.match = (params: any) => {
-//       if (router.currentState.isMatching) {
-//          if (!equalParams(paramKeys, router.currentState.params, params)) {
-//             parent.match(params)
-//             router.currentState = {
-//                isMatching: true,
-//                params
-//             }
-//             router.match$.next({ params })
-//          }
-//       } else {
-//          router.currentState = {
-//             isMatching: true,
-//             params
-//          }
-//          router.match$.next({ params })
-//       }
-//    }
-//    router.push = createPush(router, parent)
-//    router.pushMemory = createMemoryPush(router, parent)
-//    if (config.path !== undefined) {
-//       router.pathParser = new PathParser(path)
-//       router._matchesPath = (pathname: string): object | null => {
-//          const parsedParams = router.pathParser.partialTest(pathname)
-//          if (parsedParams !== null) {
-//             return {
-//                router,
-//                params: parsedParams
-//             }
-//          } else return null
-//       }
-//    } else {
-//       router._matchesPath = () => null
-//    }
-
-//    router.unmatch = () => {
-//       if (router.currentState.isMatching) {
-//          router.unmatchChildren()
-//          router.currentState = {
-//             isMatching: false,
-//             params: undefined
-//          }
-//          router.match$.next(undefined)
-//       }
-//    }
-//    const { nested } = config as any
-//    if (nested !== undefined) {
-//       Object.keys(nested).forEach(nestedRouteId => {
-//          const nestedRouter = createNestedRouter(
-//             nested[nestedRouteId],
-//             router,
-//             config,
-//             createPush
-//          )
-//          children.push(nestedRouter)
-//          router[nestedRouteId] = nestedRouter
-//       })
-//    }
-//    router.nested = children
-//    return router
-// }
 
 class NestedMemoryRouter {
    private readonly _state$: BehaviorSubject<any>
@@ -140,6 +51,7 @@ class NestedMemoryRouter {
          this._params = [
             ...(_parentRouter._params || []),
             ...((config && config.params) || [])
+            // TODO Remove duplicates (in case a param is defined in both parent and child)
          ]
       }
       const initialState = { match: null }
@@ -192,7 +104,11 @@ class NestedMemoryRouter {
               ...this.retrieveNestedRouteStates()
            }
          : { match: { exact: true }, ...this.retrieveNestedRouteStates() }
+
       this._parentRouter.onChildStateChanged(this._routeId, newState)
+      // TODO Should be:
+      // this._parentRouter.onChildMatchAgain(this._routeId, newState)
+      // TEST grandparent updates match when its params change
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
@@ -214,6 +130,9 @@ class NestedMemoryRouter {
       })
       return nestedStates
    }
+   /**
+    * Called when a direct child now matches, and previously did not.
+    */
    private onChildMatch(routeId: string, newChildState: any) {
       if (this.isMatchingExact) {
          this.handleChildMatchWhenMatchingExact(routeId, newChildState)
@@ -316,6 +235,9 @@ class NestedMemoryRouter {
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
+   /**
+    * Called when a route change causes a child to emit a new state, but since is not directly concerned by the change it does not emit a new match
+    */
    private onChildStateChanged(routeId: string, newChildState: any) {
       const newState = {
          ...this.currentState,
@@ -332,6 +254,9 @@ class NestedMemoryRouter {
       this._state$.next(newState)
       // this._match$.next(newState.match) // TODO Delete !!!
    }
+   /**
+    * Called when a child that previously matched receives new and different params
+    */
    private onChildMatchAgain(routeId: string, newChildState: any) {
       const newState = {
          ...this.currentState,
@@ -401,8 +326,6 @@ export function createMemoryRouter<Config extends RouterConfig>(
       initialState[routeId] = nestedRouter.currentState
    })
    router._state$ = new BehaviorSubject(initialState)
-   //   router.pushMemory = () => router.unmatchChildren()
-   //    router.match = doNothing
    router.onChildMatch = (childId: string, newChildState: any) => {
       router.unmatchOtherBranches(childId)
       const newState = {} as any
