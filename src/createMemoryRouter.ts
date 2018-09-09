@@ -4,10 +4,6 @@ import { equalParams } from './equalParams'
 import { RouterConfig } from './RouterConfig'
 import { TreeRouter } from './TreeRouter'
 
-function doNothing() {
-   return
-}
-
 class NestedMemoryRouter {
    private readonly _state$: BehaviorSubject<any>
    private readonly _match$: BehaviorSubject<any>
@@ -212,7 +208,7 @@ class NestedMemoryRouter {
    }
    /**
     * Called when a route change causes a child to update its state, but since is not directly concerned by the change it does not emit a new match.
-    * At this level, params can not change.
+    * From this point and down to root store, params can not change.
     */
    private onChildStateChanged(routeId: string, newChildState: any) {
       const newState = {
@@ -226,15 +222,13 @@ class NestedMemoryRouter {
     * Called when a child that previously matched receives new and different params
     */
    private onChildMatchAgain(routeId: string, newChildState: any) {
-      const newState = {
-         ...this.currentState,
-         [routeId]: newChildState
-      } as any
       if (this._params === undefined) {
-         // TEST
-         //  this._parentRouter.onChildStateChanged(this._routeId, newState)
-         this._state$.next(newState)
+         this.onChildStateChanged(routeId, newChildState)
       } else {
+         const newState = {
+            ...this.currentState,
+            [routeId]: newChildState
+         } as any
          const newParams = {} as any
          this._params.forEach((param: string) => {
             newParams[param] = newChildState.match.params[param]
@@ -243,10 +237,8 @@ class NestedMemoryRouter {
             this._parentRouter.onChildStateChanged(this._routeId, newState)
             this._state$.next(newState)
          } else {
-            // If params have changed:
             newState.match = { exact: false, params: newParams }
-            // TEST
-            //  this._parentRouter.onChildMatchAgain(this._routeId, newState)
+            this._parentRouter.onChildMatchAgain(this._routeId, newState)
             this._state$.next(newState)
             this._match$.next(newState.match)
          }
@@ -304,19 +296,14 @@ export function createMemoryRouter<Config extends RouterConfig>(
       newState[childId] = newChildState
       router._state$.next(newState)
    }
-   router.onChildMatchAgain = doNothing
-   // TODO update state
-   // TEST root router state changes when child pushed twice with diffenrent params
    router.onChildStateChanged = (childId: string, newChildState: any) => {
       const newState = {
-         // TEST
-         // ...router.currentState,
+         ...router.currentState,
          [childId]: newChildState
       }
       router._state$.next(newState)
    }
-   // TODO update state
-   // TEST root router state changes when child pushed twice with diffenrent params
+   router.onChildMatchAgain = router.onChildStateChanged
    router.unmatchAll = () => routeIds.forEach(id => router[id].unmatch())
    return router
 }

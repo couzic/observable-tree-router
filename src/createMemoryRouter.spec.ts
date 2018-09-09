@@ -45,7 +45,7 @@ describe('createMemoryRouter', () => {
       id: '123'
    })
 
-   describe('given single route', () => {
+   describe('given route and other route', () => {
       const createRouter = () =>
          createMemoryRouter({
             home: route(),
@@ -290,28 +290,36 @@ describe('createMemoryRouter', () => {
          expect(childMatches).to.deep.equal([null])
       })
 
-      it('matches parent only when navigated to after child route', () => {
-         router.parent.child.push()
-         router.parent.push()
-         expectToMatchExact(router.parent)
-         expectNotToMatch(router.parent.child)
-
-         expect(parentStates).to.deep.equal([
-            { match: null, child: { match: null } },
-            { match: { exact: false }, child: { match: { exact: true } } },
-            { match: { exact: true }, child: { match: null } }
-         ])
-         expect(parentMatches).to.deep.equal([
-            null,
-            { exact: false },
-            { exact: true }
-         ])
-         expect(childStates).to.deep.equal([
-            { match: null },
-            { match: { exact: true } },
-            { match: null }
-         ])
-         expect(childMatches).to.deep.equal([null, { exact: true }, null])
+      describe('when navigating to child then parent', () => {
+         beforeEach(() => {
+            router.parent.child.push()
+            router.parent.push()
+         })
+         it('matches parent', () => {
+            expectToMatchExact(router.parent)
+            expect(parentStates).to.deep.equal([
+               { match: null, child: { match: null } },
+               { match: { exact: false }, child: { match: { exact: true } } },
+               { match: { exact: true }, child: { match: null } }
+            ])
+            expect(parentMatches).to.deep.equal([
+               null,
+               { exact: false },
+               { exact: true }
+            ])
+         })
+         it('does not match child', () => {
+            expectNotToMatch(router.parent.child)
+            expect(childStates).to.deep.equal([
+               { match: null },
+               { match: { exact: true } },
+               { match: null }
+            ])
+            expect(childMatches).to.deep.equal([null, { exact: true }, null])
+         })
+         it('keeps other route in root state', () => {
+            expect(router.currentState.otherRoute).to.exist
+         })
       })
 
       it('matches neither when navigated to other route', () => {
@@ -509,6 +517,12 @@ describe('createMemoryRouter', () => {
                { exact: false, params: parentParams2 }
             ])
          })
+         it('updates root state', () => {
+            expect(router.currentState.parent.child.match).to.deep.equal({
+               exact: true,
+               params: childParams2
+            })
+         })
       })
 
       describe('when child route changes child params only', () => {
@@ -617,12 +631,23 @@ describe('createMemoryRouter', () => {
          expect(otherRouteMatches).to.deep.equal([null, { exact: true }, null])
       })
 
-      it('updates grandparent state when navigating to child route after parent', () => {
-         router.grandparent.parent.push()
-         router.grandparent.parent.child.push()
-         expect(router.grandparent.currentState.parent).to.equal(
-            router.grandparent.parent.currentState
-         )
+      describe('when navigating to child route after parent', () => {
+         beforeEach(() => {
+            router.grandparent.parent.push()
+            router.grandparent.parent.child.push()
+         })
+         it('updates grandparent state', () => {
+            expect(router.grandparent.currentState.parent).to.deep.equal({
+               match: { exact: false },
+               child: { match: { exact: true } }
+            })
+         })
+         it('updates route state', () => {
+            expect(router.currentState.grandparent.parent).to.deep.equal({
+               match: { exact: false },
+               child: { match: { exact: true } }
+            })
+         })
       })
    })
 
