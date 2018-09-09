@@ -105,10 +105,7 @@ class NestedMemoryRouter {
            }
          : { match: { exact: true }, ...this.retrieveNestedRouteStates() }
 
-      this._parentRouter.onChildStateChanged(this._routeId, newState)
-      // TODO Should be:
-      // this._parentRouter.onChildMatchAgain(this._routeId, newState)
-      // TEST grandparent updates match when its params change
+      this._parentRouter.onChildMatchAgain(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
@@ -189,9 +186,6 @@ class NestedMemoryRouter {
             this._parentRouter.onChildMatchAgain(this._routeId, newState)
             this._state$.next(newState)
             this._match$.next(newState.match)
-            // TODO update state AND match
-            // TODO test grandparent
-            // newState.match = { exact: false, params: newParams }
          }
       }
    }
@@ -204,31 +198,12 @@ class NestedMemoryRouter {
          [routeId]: newChildState
       } as any
       if (this._params === undefined) {
-         if (this.isMatchingChild) {
-            // TODO Do NOT eject, state still has to be updated (match can still be ignored though)
-            // TEST When child state changes but parent is not impacted:
-            // 1. Parent state changes
-            // 2. Parent match does not change
-            // 3. Parent state.match keeps same reference
-            return
-         }
          newState.match = { exact: false }
       } else {
          const newParams = {} as any
          this._params.forEach((param: string) => {
             newParams[param] = newChildState.match.params[param]
          })
-         if (
-            this.currentState.match !== null &&
-            equalParams(this._params, this.currentParams, newParams)
-         ) {
-            // TODO Do NOT eject, state still has to be updated (match can still be ignored though)
-            // TEST When child state changes but parent is not impacted:
-            // 1. Parent state changes
-            // 2. Parent match does not change
-            // 3. Parent state.match keeps same reference
-            return
-         }
          newState.match = { exact: false, params: newParams }
       }
       this._parentRouter.onChildMatch(this._routeId, newState)
@@ -236,23 +211,16 @@ class NestedMemoryRouter {
       this._match$.next(newState.match)
    }
    /**
-    * Called when a route change causes a child to emit a new state, but since is not directly concerned by the change it does not emit a new match
+    * Called when a route change causes a child to update its state, but since is not directly concerned by the change it does not emit a new match.
+    * At this level, params can not change.
     */
    private onChildStateChanged(routeId: string, newChildState: any) {
       const newState = {
          ...this.currentState,
          [routeId]: newChildState
       } as any
-      if (this._params !== undefined) {
-         const newParams = {} as any
-         this._params.forEach((param: string) => {
-            newParams[param] = newChildState.match.params[param]
-         })
-         newState.match = { exact: false, params: newParams }
-      }
       this._parentRouter.onChildStateChanged(this._routeId, newState)
       this._state$.next(newState)
-      // this._match$.next(newState.match) // TODO Delete !!!
    }
    /**
     * Called when a child that previously matched receives new and different params
@@ -263,24 +231,25 @@ class NestedMemoryRouter {
          [routeId]: newChildState
       } as any
       if (this._params === undefined) {
-         // TODO Test state updates
+         // TEST
+         //  this._parentRouter.onChildStateChanged(this._routeId, newState)
          this._state$.next(newState)
-         // TODO Test great grandparent FOR
-         // this._parentRouter.onChildStateChanged(this._routeId, newState) || onchildmatchagain
       } else {
          const newParams = {} as any
          this._params.forEach((param: string) => {
             newParams[param] = newChildState.match.params[param]
          })
-         // TODO Check if params have changed. If not, keep previous match reference
-         // If params have changed:
-         newState.match = { exact: false, params: newParams }
-         this._state$.next(newState)
-         this._match$.next(newState.match)
-         // else
-         //   this._state$.next(newState)
-         // TODO Test great grandparent FOR
-         //  this._parentRouter.onChildStateChanged(this._routeId, newState) || onchildmatchagain
+         if (equalParams(this._params, this.currentParams, newParams)) {
+            this._parentRouter.onChildStateChanged(this._routeId, newState)
+            this._state$.next(newState)
+         } else {
+            // If params have changed:
+            newState.match = { exact: false, params: newParams }
+            // TEST
+            //  this._parentRouter.onChildMatchAgain(this._routeId, newState)
+            this._state$.next(newState)
+            this._match$.next(newState.match)
+         }
       }
    }
    private unmatch() {
@@ -327,7 +296,7 @@ export function createMemoryRouter<Config extends RouterConfig>(
    })
    router._state$ = new BehaviorSubject(initialState)
    router.onChildMatch = (childId: string, newChildState: any) => {
-      router.unmatchOtherBranches(childId)
+      router.unmatchAll()
       const newState = {} as any
       routeIds.forEach(routeId => {
          newState[routeId] = router[routeId].currentState
@@ -335,10 +304,19 @@ export function createMemoryRouter<Config extends RouterConfig>(
       newState[childId] = newChildState
       router._state$.next(newState)
    }
-   router.onChildStateChanged = doNothing
    router.onChildMatchAgain = doNothing
-   router.unmatchOtherBranches = (routeId: string) => {
-      routeIds.filter(id => id !== routeId).forEach(id => router[id].unmatch())
+   // TODO update state
+   // TEST root router state changes when child pushed twice with diffenrent params
+   router.onChildStateChanged = (childId: string, newChildState: any) => {
+      const newState = {
+         // TEST
+         // ...router.currentState,
+         [childId]: newChildState
+      }
+      router._state$.next(newState)
    }
+   // TODO update state
+   // TEST root router state changes when child pushed twice with diffenrent params
+   router.unmatchAll = () => routeIds.forEach(id => router[id].unmatch())
    return router
 }
