@@ -1,4 +1,4 @@
-import { createMemoryRouter } from './createRouter'
+import { createMemoryRouter } from './createMemoryRouter'
 
 // Null config @shouldNotCompile
 createMemoryRouter(null)

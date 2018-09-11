@@ -1,21 +1,25 @@
-import { expect } from 'chai'
+import * as chai from 'chai'
 import { createMemoryHistory, History } from 'history'
+import { spy, stub } from 'sinon'
+import * as sinonChai from 'sinon-chai'
 
-import { createBrowserRouter } from './createRouter'
+import { createBrowserRouter } from './createBrowserRouter'
 import { route } from './route'
+import {
+   expectNotToMatch,
+   expectToMatch,
+   expectToMatchExact
+} from './testUtils'
 import { toArray } from './toArray'
 
-const expectNotToMatch = (router: any) => {
-   expect(router.isMatching).to.equal(false)
-   expect(router.params).to.equal(undefined)
-   expect(toArray(router.match$)).to.deep.equal([undefined])
-}
+chai.use(sinonChai)
+const { expect } = chai
 
-const expectToMatch = (router: any, params = {}) => {
-   expect(router.isMatching).to.equal(true)
-   expect(router.params).to.deep.equal(params)
-   expect(toArray(router.match$)).to.deep.equal([{ params }])
-}
+const createHistorySpy = (): History =>
+   ({
+      push: spy(),
+      listen: stub()
+   } as any)
 
 describe('createBrowserRouter', () => {
    let history: History
@@ -24,59 +28,62 @@ describe('createBrowserRouter', () => {
       history = createMemoryHistory()
    })
 
-   describe('simple routes', () => {
+   describe('given simple route', () => {
       const createRouter = (h = history) =>
-         createBrowserRouter(
-            {
-               otherRoute: route({
-                  path: '/other'
-               }),
-               home: route({
-                  path: '/'
-               })
-            },
-            h
-         )
+         createBrowserRouter(h, {
+            otherRoute: route({
+               path: '/other'
+            }),
+            home: route({
+               path: '/'
+            })
+         })
       let router: ReturnType<typeof createRouter>
 
       beforeEach(() => {
          router = createRouter()
       })
 
-      xit('initially does not match', () => {
+      it('has root state', () => {
+         expect(router.currentState).to.deep.equal({
+            home: { match: null },
+            otherRoute: { match: null }
+         })
+         expect(toArray(router.state$)).to.deep.equal([
+            {
+               home: { match: null },
+               otherRoute: { match: null }
+            }
+         ])
+      })
+
+      it('has path', () => {
+         expect(router.home.path).to.equal('/')
+         expect(router.otherRoute.path).to.equal('/other')
+      })
+
+      it('initially does not match', () => {
          expectNotToMatch(router.home)
+      })
+
+      it('pushes url to history when navigated to', () => {
+         history = createHistorySpy()
+         router = createRouter(history)
+
+         router.home.push()
+
+         expect(history.push).to.have.been.calledWith('/')
+      })
+
+      it('matches when history pushes path', () => {
+         history.push(router.home.path)
+         expectToMatchExact(router.home)
+         expectNotToMatch(router.otherRoute)
       })
 
       xit('matches when navigated to', () => {
          router.home.push()
-         expectToMatch(router.home)
-      })
-
-      xit('pushes path to history when navigated to', () => {
-         let pushHasBeenCalled = false
-         let pushedPathname: undefined | string
-         const historySpy = {
-            push(pathname: string) {
-               pushHasBeenCalled = true
-               pushedPathname = pathname
-               history.push(pathname)
-            },
-            listen(listener: any) {
-               history.listen(listener)
-            }
-         } as any
-         const r = createRouter(historySpy)
-
-         r.home.push()
-
-         expect(pushHasBeenCalled).to.equal(true)
-         expect(pushedPathname).to.equal('/')
-      })
-
-      xit('matches when history pushes path', () => {
-         history.push('/')
-         expectToMatch(router.home)
-         expectNotToMatch(router.otherRoute)
+         expectToMatchExact(router.home)
       })
 
       xit('matches other route when navigated to', () => {
@@ -105,20 +112,26 @@ describe('createBrowserRouter', () => {
    })
 
    describe('simple route with params', () => {
-      const createRouter = () =>
-         createBrowserRouter(
-            {
-               user: route({
-                  path: '/user/:userId',
-                  params: ['userId']
-               })
-            },
-            history
-         )
+      const createRouter = (h = history) =>
+         createBrowserRouter(h, {
+            user: route({
+               path: '/user/:userId',
+               params: ['userId']
+            })
+         })
       let router: ReturnType<typeof createRouter>
 
       beforeEach(() => {
          router = createRouter()
+      })
+
+      it('pushes url to history when navigated to', () => {
+         history = createHistorySpy()
+         router = createRouter(history)
+
+         router.user.push({ userId: 'id' })
+
+         expect(history.push).to.have.been.calledWith('/user/id')
       })
 
       xit('matches params when history pushes path', () => {
@@ -128,31 +141,41 @@ describe('createBrowserRouter', () => {
    })
 
    describe('nested route with params', () => {
-      const createRouter = () =>
-         createBrowserRouter(
-            {
-               user: route({
-                  path: '/user/:userId',
-                  params: ['userId'],
-                  nested: {
-                     post: route({
-                        path: '/post/:postId',
-                        params: ['postId']
-                     })
-                  }
-               })
-            },
-            history
-         )
+      const createRouter = (h = history) =>
+         createBrowserRouter(history, {
+            user: route({
+               path: '/user/:userId',
+               params: ['userId'],
+               nested: {
+                  post: route({
+                     path: '/post/:postId',
+                     params: ['postId']
+                  })
+               }
+            })
+         })
       let router: ReturnType<typeof createRouter>
-      let userMatches: any
-      let postMatches: any
+      //   let userMatches: any
+      //   let postMatches: any
 
       beforeEach(() => {
          router = createRouter()
 
-         userMatches = toArray(router.user.match$)
-         postMatches = toArray(router.user.post.match$)
+         //  userMatches = toArray(router.user.match$)
+         //  postMatches = toArray(router.user.post.match$)
+      })
+
+      it('has path', () => {
+         expect(router.user.post.path).to.equal('/user/:userId/post/:postId')
+      })
+
+      it('pushes url to history when navigated to', () => {
+         history = createHistorySpy()
+         router = createRouter(history)
+
+         router.user.post.push({ userId: '1', postId: '2' })
+
+         expect(history.push).to.have.been.calledWith('/user/1/post/2')
       })
 
       xit('matches nested route when navigated to', () => {
@@ -163,8 +186,8 @@ describe('createBrowserRouter', () => {
          expectToMatch(router.user, params)
          expectToMatch(router.user.post, params)
 
-         expect(userMatches).to.deep.equal([undefined, { params }])
-         expect(postMatches).to.deep.equal([undefined, { params }])
+         //  expect(userMatches).to.deep.equal([undefined, { params }])
+         //  expect(postMatches).to.deep.equal([undefined, { params }])
       })
 
       xit('matches nested route when history pushes path', () => {
@@ -173,8 +196,8 @@ describe('createBrowserRouter', () => {
          expectToMatch(router.user, params)
          expectToMatch(router.user.post, params)
 
-         expect(userMatches).to.deep.equal([undefined, { params }])
-         expect(postMatches).to.deep.equal([undefined, { params }])
+         //  expect(userMatches).to.deep.equal([undefined, { params }])
+         //  expect(postMatches).to.deep.equal([undefined, { params }])
       })
    })
 
