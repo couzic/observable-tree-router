@@ -720,17 +720,17 @@ describe('createMemoryRouter', () => {
          router = createGrandparentRouter()
       })
 
-      //   it('updates great great grandparent state when navigating from parent to child', () => {
-      //      router.greatGreatGrandparent.greatGrandparent.grandparent.parent.push()
-      //      router.greatGreatGrandparent.greatGrandparent.grandparent.parent.child.push()
-      //      expect(
-      //         router.greatGreatGrandparent.currentState.greatGrandparent
-      //            .grandparent.parent
-      //      ).to.deep.equal({
-      //         match: { exact: false },
-      //         child: { match: { exact: true } }
-      //      })
-      //   })
+      it('updates great great grandparent state when navigating from parent to child', () => {
+         router.greatGreatGrandparent.greatGrandparent.grandparent.parent.push()
+         router.greatGreatGrandparent.greatGrandparent.grandparent.parent.child.push()
+         expect(
+            router.greatGreatGrandparent.currentState.greatGrandparent
+               .grandparent.parent
+         ).to.deep.equal({
+            match: { exact: false },
+            child: { match: { exact: true } }
+         })
+      })
    })
 
    describe('grandparent route with two grandchildren', () => {

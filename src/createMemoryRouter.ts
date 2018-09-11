@@ -10,6 +10,7 @@ class NestedMemoryRouter {
    private readonly _nestedRouteIds: string[] = []
    private readonly _nestedRouters: NestedMemoryRouter[] = []
    private readonly _params: string[] | undefined
+   // TODO Make sure no route has same name as one of those public methods
    public get currentState() {
       return this._state$.getValue()
    }
@@ -70,14 +71,14 @@ class NestedMemoryRouter {
    }
    public push(params: any) {
       if (this.isMatchingExact) {
-         this.handlePushWhenMatchingExact(params)
+         this._handlePushWhenMatchingExact(params)
       } else if (this.isMatchingChild) {
-         this.handlePushWhenMatchingChild(params)
+         this._handlePushWhenMatchingChild(params)
       } else {
-         this.handlePushWhenNotMatching(params)
+         this._handlePushWhenNotMatching(params)
       }
    }
-   private handlePushWhenMatchingExact(params: any) {
+   private _handlePushWhenMatchingExact(params: any) {
       if (params === undefined) return
       if (
          this._params !== undefined &&
@@ -88,35 +89,35 @@ class NestedMemoryRouter {
          ...this.currentState,
          match: { exact: true, params }
       }
-      this._parentRouter.onChildMatchAgain(this._routeId, newState)
+      this._parentRouter._onChildMatchAgain(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   private handlePushWhenMatchingChild(params: any) {
-      this.unmatchChildren()
+   private _handlePushWhenMatchingChild(params: any) {
+      this._unmatchChildren()
       const newState = params
          ? {
               match: { exact: true, params },
-              ...this.retrieveNestedRouteStates()
+              ...this._retrieveNestedRouteStates()
            }
-         : { match: { exact: true }, ...this.retrieveNestedRouteStates() }
+         : { match: { exact: true }, ...this._retrieveNestedRouteStates() }
 
-      this._parentRouter.onChildMatchAgain(this._routeId, newState)
+      this._parentRouter._onChildMatchAgain(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   private handlePushWhenNotMatching(params: any) {
+   private _handlePushWhenNotMatching(params: any) {
       const newState = params
          ? {
               match: { exact: true, params },
-              ...this.retrieveNestedRouteStates()
+              ...this._retrieveNestedRouteStates()
            }
-         : { match: { exact: true }, ...this.retrieveNestedRouteStates() }
-      this._parentRouter.onChildMatch(this._routeId, newState)
+         : { match: { exact: true }, ...this._retrieveNestedRouteStates() }
+      this._parentRouter._onChildMatch(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   private retrieveNestedRouteStates() {
+   private _retrieveNestedRouteStates() {
       const nestedStates = {} as any
       this._nestedRouteIds.forEach(nestedRouteId => {
          nestedStates[nestedRouteId] = (this as any)[nestedRouteId].currentState
@@ -126,16 +127,16 @@ class NestedMemoryRouter {
    /**
     * Called when a direct child now matches, and previously did not.
     */
-   private onChildMatch(routeId: string, newChildState: any) {
+   private _onChildMatch(routeId: string, newChildState: any) {
       if (this.isMatchingExact) {
-         this.handleChildMatchWhenMatchingExact(routeId, newChildState)
+         this._handleChildMatchWhenMatchingExact(routeId, newChildState)
       } else if (this.isMatchingChild) {
-         this.handleChildMatchWhenMatchingOtherChild(routeId, newChildState)
+         this._handleChildMatchWhenMatchingOtherChild(routeId, newChildState)
       } else {
-         this.handleChildMatchWhenNotMatching(routeId, newChildState)
+         this._handleChildMatchWhenNotMatching(routeId, newChildState)
       }
    }
-   private handleChildMatchWhenMatchingExact(
+   private _handleChildMatchWhenMatchingExact(
       routeId: string,
       newChildState: any
    ) {
@@ -152,22 +153,22 @@ class NestedMemoryRouter {
          })
          newState.match = { exact: false, params: newParams }
       }
-      this._parentRouter.onChildMatchAgain(this._routeId, newState)
+      this._parentRouter._onChildMatchAgain(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   private handleChildMatchWhenMatchingOtherChild(
+   private _handleChildMatchWhenMatchingOtherChild(
       routeId: string,
       newChildState: any
    ) {
-      this.unmatchChildren()
+      this._unmatchChildren()
       const newState = {
          match: this.currentState.match,
-         ...this.retrieveNestedRouteStates(),
+         ...this._retrieveNestedRouteStates(),
          [routeId]: newChildState
       } as any
       if (this._params === undefined) {
-         this._parentRouter.onChildStateChanged(this._routeId, newState)
+         this._parentRouter._onChildStateChanged(this._routeId, newState)
          this._state$.next(newState)
       } else {
          const newParams = {} as any
@@ -175,17 +176,17 @@ class NestedMemoryRouter {
             newParams[param] = newChildState.match.params[param]
          })
          if (equalParams(this._params, this.currentParams, newParams)) {
-            this._parentRouter.onChildStateChanged(this._routeId, newState)
+            this._parentRouter._onChildStateChanged(this._routeId, newState)
             this._state$.next(newState)
          } else {
             newState.match = { exact: false, params: newParams }
-            this._parentRouter.onChildMatchAgain(this._routeId, newState)
+            this._parentRouter._onChildMatchAgain(this._routeId, newState)
             this._state$.next(newState)
             this._match$.next(newState.match)
          }
       }
    }
-   private handleChildMatchWhenNotMatching(
+   private _handleChildMatchWhenNotMatching(
       routeId: string,
       newChildState: any
    ) {
@@ -202,7 +203,7 @@ class NestedMemoryRouter {
          })
          newState.match = { exact: false, params: newParams }
       }
-      this._parentRouter.onChildMatch(this._routeId, newState)
+      this._parentRouter._onChildMatch(this._routeId, newState)
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
@@ -210,20 +211,20 @@ class NestedMemoryRouter {
     * Called when a route change causes a child to update its state, but since is not directly concerned by the change it does not emit a new match.
     * From this point and down to root store, params can not change.
     */
-   private onChildStateChanged(routeId: string, newChildState: any) {
+   private _onChildStateChanged(routeId: string, newChildState: any) {
       const newState = {
          ...this.currentState,
          [routeId]: newChildState
       } as any
-      this._parentRouter.onChildStateChanged(this._routeId, newState)
+      this._parentRouter._onChildStateChanged(this._routeId, newState)
       this._state$.next(newState)
    }
    /**
     * Called when a child that previously matched receives new and different params
     */
-   private onChildMatchAgain(routeId: string, newChildState: any) {
+   private _onChildMatchAgain(routeId: string, newChildState: any) {
       if (this._params === undefined) {
-         this.onChildStateChanged(routeId, newChildState)
+         this._onChildStateChanged(routeId, newChildState)
       } else {
          const newState = {
             ...this.currentState,
@@ -234,19 +235,19 @@ class NestedMemoryRouter {
             newParams[param] = newChildState.match.params[param]
          })
          if (equalParams(this._params, this.currentParams, newParams)) {
-            this._parentRouter.onChildStateChanged(this._routeId, newState)
+            this._parentRouter._onChildStateChanged(this._routeId, newState)
             this._state$.next(newState)
          } else {
             newState.match = { exact: false, params: newParams }
-            this._parentRouter.onChildMatchAgain(this._routeId, newState)
+            this._parentRouter._onChildMatchAgain(this._routeId, newState)
             this._state$.next(newState)
             this._match$.next(newState.match)
          }
       }
    }
-   private unmatch() {
+   private _unmatch() {
       if (this.currentState.match) {
-         this.unmatchChildren()
+         this._unmatchChildren()
          const newState = { match: null } as any
          this._nestedRouteIds.forEach(nestedRouteId => {
             newState[nestedRouteId] = (this as any)[nestedRouteId].currentState
@@ -255,9 +256,9 @@ class NestedMemoryRouter {
          this._match$.next(newState.match)
       }
    }
-   private unmatchChildren() {
+   private _unmatchChildren() {
       this._nestedRouters.forEach(nestedRouter => {
-         nestedRouter.unmatch()
+         nestedRouter._unmatch()
       })
    }
 }
@@ -287,8 +288,8 @@ export function createMemoryRouter<Config extends RouterConfig>(
       initialState[routeId] = nestedRouter.currentState
    })
    router._state$ = new BehaviorSubject(initialState)
-   router.onChildMatch = (childId: string, newChildState: any) => {
-      router.unmatchAll()
+   router._onChildMatch = (childId: string, newChildState: any) => {
+      router._unmatchAll()
       const newState = {} as any
       routeIds.forEach(routeId => {
          newState[routeId] = router[routeId].currentState
@@ -296,14 +297,14 @@ export function createMemoryRouter<Config extends RouterConfig>(
       newState[childId] = newChildState
       router._state$.next(newState)
    }
-   router.onChildStateChanged = (childId: string, newChildState: any) => {
+   router._onChildStateChanged = (childId: string, newChildState: any) => {
       const newState = {
          ...router.currentState,
          [childId]: newChildState
       }
       router._state$.next(newState)
    }
-   router.onChildMatchAgain = router.onChildStateChanged
-   router.unmatchAll = () => routeIds.forEach(id => router[id].unmatch())
+   router._onChildMatchAgain = router._onChildStateChanged
+   router._unmatchAll = () => routeIds.forEach(id => router[id]._unmatch())
    return router
 }
