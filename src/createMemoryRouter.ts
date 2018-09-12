@@ -248,10 +248,10 @@ class NestedMemoryRouter {
    private _unmatch() {
       if (this.currentState.match) {
          this._unmatchChildren()
-         const newState = { match: null } as any
-         this._nestedRouteIds.forEach(nestedRouteId => {
-            newState[nestedRouteId] = (this as any)[nestedRouteId].currentState
-         })
+         const newState = {
+            match: null,
+            ...this._retrieveNestedRouteStates()
+         } as any
          this._state$.next(newState)
          this._match$.next(newState.match)
       }

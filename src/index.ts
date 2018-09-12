@@ -1,4 +1,5 @@
-export * from './createRouter'
+export * from './createBrowserRouter'
+export * from './createMemoryRouter'
 export * from './route'
 export * from './RouteConfig'
 export * from './RouterConfig'

@@ -23,29 +23,30 @@ class NestedBrowserRouter {
    public get match$() {
       return this._match$
    }
-   //    public get isMatching(): boolean {
-   //       return this._state$.getValue().match !== null
-   //    }
-   //    public get isMatchingExact(): boolean {
-   //       const { match } = this._state$.getValue()
-   //       return match !== null && match.exact
-   //    }
-   //    public get isMatchingChild(): boolean {
-   //       const { match } = this.state$.getValue()
-   //       return match !== null && !match.exact
-   //    }
-   //    public get currentParams(): null | object {
-   //       const { match } = this._state$.getValue()
-   //       if (match === null || match.params === undefined) return null
-   //       else return match.params
-   //    }
+   public get isMatching(): boolean {
+      return this._state$.getValue().match !== null
+   }
+   public get isMatchingExact(): boolean {
+      const { match } = this._state$.getValue()
+      return match !== null && match.exact
+   }
+   public get isMatchingChild(): boolean {
+      const { match } = this.state$.getValue()
+      return match !== null && !match.exact
+   }
+   public get currentParams(): null | object {
+      const { match } = this._state$.getValue()
+      if (match === null || match.params === undefined) return null
+      else return match.params
+   }
    constructor(
       private readonly _routeId: string,
       config: any,
       private readonly _parentRouter: NestedBrowserRouter,
       private readonly _history: History
    ) {
-      this.path = _parentRouter.path + config.path
+      const relativePath = (config && config.path) || '/' + _routeId
+      this.path = _parentRouter.path + relativePath
       this._pathParser = new Path(this.path)
       //       if (
       //          _parentRouter._params !== undefined ||
@@ -87,21 +88,45 @@ class NestedBrowserRouter {
       //          this._handlePushWhenNotMatching(params)
       //       }
    }
-   private _testUrl(url: string) {
-      const result = this._pathParser.test(url)
-      if (Boolean(result)) {
-         this._matchUrl(url)
+   private _testUrl(url: string): boolean {
+      const partialMatch = this._pathParser.partialTest(url)
+      if (Boolean(partialMatch)) {
+         const exactMatch = this._pathParser.test(url)
+         if (Boolean(exactMatch)) {
+            this._matchExactUrl(url)
+         } else {
+            this._matchUrl(url)
+         }
          return true
+      } else {
+         this._unmatch()
+         return false
       }
-      // else {
-      //    return false
-      // }
-      // console.log(result, Boolean(result))
+   }
+   private _matchExactUrl(url: string) {
+      const newState = {
+         //  ...this.currentState,
+         match: { exact: true }
+      }
+      this._state$.next(newState)
+      this._match$.next(newState.match)
    }
    private _matchUrl(url: string) {
       const newState = {
          //  ...this.currentState,
-         match: { exact: true }
+         match: { exact: false }
+      }
+      let hasMatched = false
+      for (
+         let i = 0, routeCount = this._nestedRouteIds.length;
+         i < routeCount;
+         i++
+      ) {
+         //  if (hasMatched) {
+         //     this._nestedRouters[i]._unmatch()
+         //  } else {
+         hasMatched = this._nestedRouters[i]._testUrl(url)
+         //  }
       }
       this._state$.next(newState)
       this._match$.next(newState.match)
@@ -144,13 +169,13 @@ class NestedBrowserRouter {
    //       this._state$.next(newState)
    //       this._match$.next(newState.match)
    //    }
-   //    private _retrieveNestedRouteStates() {
-   //       const nestedStates = {} as any
-   //       this._nestedRouteIds.forEach(nestedRouteId => {
-   //          nestedStates[nestedRouteId] = (this as any)[nestedRouteId].currentState
-   //       })
-   //       return nestedStates
-   //    }
+   private _retrieveNestedRouteStates() {
+      const nestedStates = {} as any
+      this._nestedRouteIds.forEach(nestedRouteId => {
+         nestedStates[nestedRouteId] = (this as any)[nestedRouteId].currentState
+      })
+      return nestedStates
+   }
    //    /**
    //     * Called when a direct child now matches, and previously did not.
    //     */
@@ -272,17 +297,17 @@ class NestedBrowserRouter {
    //          }
    //       }
    //    }
-   //    private _unmatch() {
-   //       if (this.currentState.match) {
-   //          this._unmatchChildren()
-   //          const newState = { match: null } as any
-   //          this._nestedRouteIds.forEach(nestedRouteId => {
-   //             newState[nestedRouteId] = (this as any)[nestedRouteId].currentState
-   //          })
-   //          this._state$.next(newState)
-   //          this._match$.next(newState.match)
-   //       }
-   //    }
+   private _unmatch() {
+      if (this.currentState.match) {
+         // this._unmatchChildren()
+         const newState = {
+            match: null,
+            ...this._retrieveNestedRouteStates()
+         } as any
+         this._state$.next(newState)
+         this._match$.next(newState.match)
+      }
+   }
    //    private _unmatchChildren() {
    //       this._nestedRouters.forEach(nestedRouter => {
    //          nestedRouter._unmatch()
@@ -322,8 +347,11 @@ export function createBrowserRouter<Config extends RouterConfig>(
    history.listen(location => {
       let hasMatched = false
       for (let i = 0; i < routeCount; i++) {
-         // for (let i = 0; i < routeCount && !hasMatched; i++) {
-         hasMatched = nestedRouters[i]._testUrl(location.pathname)
+         if (hasMatched) {
+            nestedRouters[i]._unmatch()
+         } else {
+            hasMatched = nestedRouters[i]._testUrl(location.pathname)
+         }
       }
    })
    //    router._onChildMatch = (childId: string, newChildState: any) => {
