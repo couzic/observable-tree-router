@@ -142,7 +142,7 @@ type BranchRouter<
    }
 >
 
-export type Router<Config extends RouterConfig> = {
+type Router<Config extends RouterConfig> = {
    [PageId in keyof Config]: Config[PageId] extends AnyRouteWithParamsConfig &
       AnyRouteWithNestedRoutesConfig
       ? BranchRouter<Config[PageId]>
@@ -236,7 +236,7 @@ type BranchRouteState<
       }
    >
 
-export type RouterState<Config extends RouterConfig> = {
+type RouterState<Config extends RouterConfig> = {
    [PageId in keyof Config]: Config[PageId] extends AnyRouteWithParamsConfig &
       AnyRouteWithNestedRoutesConfig
       ? BranchRouteState<Config[PageId]>

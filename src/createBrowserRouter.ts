@@ -1,4 +1,4 @@
-import { History } from 'history'
+import { History, Location } from 'history'
 import Path from 'path-parser'
 import { BehaviorSubject } from 'rxjs'
 
@@ -328,8 +328,8 @@ export function createBrowserRouter<Config extends RouterConfig>(
          return this._state$
       }
    } as any
-   const initialState = {} as any
    const routeIds = Object.keys(config)
+   const routeCount = routeIds.length
    const nestedRouters: any[] = []
    routeIds.forEach(routeId => {
       const nestedRouter = new NestedBrowserRouter(
@@ -340,11 +340,8 @@ export function createBrowserRouter<Config extends RouterConfig>(
       )
       nestedRouters.push(nestedRouter)
       router[routeId] = nestedRouter
-      initialState[routeId] = nestedRouter.currentState
    })
-   router._state$ = new BehaviorSubject(initialState)
-   const routeCount = routeIds.length
-   history.listen(location => {
+   const testMatchOnChildren = (location: Location) => {
       let hasMatched = false
       for (let i = 0; i < routeCount; i++) {
          if (hasMatched) {
@@ -352,6 +349,24 @@ export function createBrowserRouter<Config extends RouterConfig>(
          } else {
             hasMatched = nestedRouters[i]._testUrl(location.pathname)
          }
+      }
+      return hasMatched
+   }
+   const retrieveNestedStates = () => {
+      const newState = {} as any
+      nestedRouters.forEach(nestedRouter => {
+         newState[nestedRouter._routeId] = nestedRouter.currentState
+      })
+      return newState
+   }
+   testMatchOnChildren(history.location)
+   const initialState = retrieveNestedStates()
+   router._state$ = new BehaviorSubject(initialState)
+   history.listen(location => {
+      const hasMatched = testMatchOnChildren(location)
+      if (hasMatched) {
+         const newState = retrieveNestedStates()
+         router._state$.next(newState)
       }
    })
    //    router._onChildMatch = (childId: string, newChildState: any) => {

@@ -27,7 +27,7 @@
     "prepare": "npm run build",
     "doctoc": "doctoc . --notitle --maxlevel 4",
     "test": "mocha --opts mocha.opts && npm run acceptance-test && npm run test-compilation-errors",
-    "acceptance-test": "mocha --opts mocha.acceptance.opts",
+    "acceptance-test": "mocha --opts mocha.spec.opts",
     "test-compilation-errors": "node ./testCompilationErrors.js",
     "tdd": "mocha --opts mocha.opts --watch",
     "lint": "tslint --project ./ --fix"

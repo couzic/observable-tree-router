@@ -18,7 +18,8 @@ const { expect } = chai
 const createHistorySpy = (): History =>
    ({
       push: spy(),
-      listen: stub()
+      listen: stub(),
+      location: { pathname: '/' }
    } as any)
 
 describe('createBrowserRouter', () => {
@@ -46,12 +47,12 @@ describe('createBrowserRouter', () => {
 
       it('has root state', () => {
          expect(router.currentState).to.deep.equal({
-            home: { match: null },
+            home: { match: { exact: true } },
             otherRoute: { match: null }
          })
          expect(toArray(router.state$)).to.deep.equal([
             {
-               home: { match: null },
+               home: { match: { exact: true } },
                otherRoute: { match: null }
             }
          ])
@@ -62,8 +63,16 @@ describe('createBrowserRouter', () => {
          expect(router.otherRoute.path).to.equal('/other')
       })
 
-      it('initially does not match', () => {
-         expectNotToMatch(router.home)
+      it('initially does match home', () => {
+         expectToMatchExact(router.home)
+      })
+
+      it('updates root state when navigated to', () => {
+         router.otherRoute.push()
+         expect(router.currentState.home.match).to.equal(null)
+         expect(router.currentState.otherRoute.match).to.deep.equal({
+            exact: true
+         })
       })
 
       it('pushes url to history when navigated to', () => {
