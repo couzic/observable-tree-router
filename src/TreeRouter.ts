@@ -156,6 +156,9 @@ type Router<Config extends RouterConfig> = {
 export type TreeRouter<Config extends RouterConfig> = Router<Config> & {
    readonly state$: Observable<RouterState<Config>>
    readonly currentState: RouterState<Config>
+   readonly isMatching: boolean
+   readonly isMatchingExact: boolean
+   readonly isMatchingChild: boolean
 }
 
 interface NoParamsLeafRouteState<Config extends AnyRouteConfig> {
