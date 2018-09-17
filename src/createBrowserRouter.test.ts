@@ -67,21 +67,37 @@ describe('createBrowserRouter', () => {
          expectToMatchExact(router.home)
       })
 
-      it('updates root state when navigated to', () => {
-         router.otherRoute.push()
-         expect(router.currentState.home.match).to.equal(null)
-         expect(router.currentState.otherRoute.match).to.deep.equal({
-            exact: true
+      describe('when navigated to', () => {
+         beforeEach(() => {
+            router.home.push()
          })
-      })
+         it('matches', () => {
+            expectToMatchExact(router.home)
+            expectNotToMatch(router.otherRoute)
+         })
 
-      it('pushes url to history when navigated to', () => {
-         history = createHistorySpy()
-         router = createRouter(history)
+         it('updates root state', () => {
+            expect(router.currentState.home.match).to.deep.equal({
+               exact: true
+            })
+            expect(router.currentState.otherRoute.match).to.equal(null)
+         })
 
-         router.home.push()
+         it('pushes url to history', () => {
+            history = createHistorySpy()
+            router = createRouter(history)
 
-         expect(history.push).to.have.been.calledWith('/')
+            router.home.push()
+
+            expect(history.push).to.have.been.calledWith('/')
+         })
+         describe('then navigated to other route', () => {
+            it('unmatches first route', () => {
+               router.otherRoute.push()
+               expectNotToMatch(router.home)
+               expectToMatchExact(router.otherRoute)
+            })
+         })
       })
 
       it('matches when history pushes path', () => {
@@ -90,20 +106,7 @@ describe('createBrowserRouter', () => {
          expectNotToMatch(router.otherRoute)
       })
 
-      it('matches when navigated to', () => {
-         router.home.push()
-         expectToMatchExact(router.home)
-         expectNotToMatch(router.otherRoute)
-      })
-
       it('matches other route when navigated to', () => {
-         router.otherRoute.push()
-         expectNotToMatch(router.home)
-         expectToMatchExact(router.otherRoute)
-      })
-
-      it('unmatches when navigated to other route', () => {
-         router.home.push()
          router.otherRoute.push()
          expectNotToMatch(router.home)
          expectToMatchExact(router.otherRoute)
@@ -153,16 +156,50 @@ describe('createBrowserRouter', () => {
          router = createRouter()
       })
 
-      it('matches parent when pushed', () => {
-         router.parent.push()
-         expectToMatchExact(router.parent)
-         expectNotToMatch(router.parent.child)
+      it('has initial root state', () => {
+         expect(router.currentState).to.deep.equal({
+            parent: {
+               match: null,
+               child: {
+                  match: null
+               }
+            }
+         })
       })
 
-      it('matches both when child pushed', () => {
-         router.parent.child.push()
-         expectToMatch(router.parent)
-         expectToMatchExact(router.parent.child)
+      describe('when parent is navigated to', () => {
+         beforeEach(() => {
+            router.parent.push()
+         })
+
+         it('matches parent', () => {
+            expectToMatchExact(router.parent)
+            expectNotToMatch(router.parent.child)
+         })
+      })
+
+      describe('when child is navigated to', () => {
+         beforeEach(() => {
+            router.parent.child.push()
+         })
+         it('updates root state', () => {
+            expect(router.currentState).to.deep.equal({
+               parent: {
+                  match: { exact: false },
+                  child: { match: { exact: true } }
+               }
+            })
+         })
+         it('updates parent state', () => {
+            expect(router.parent.currentState).to.deep.equal({
+               match: { exact: false },
+               child: { match: { exact: true } }
+            })
+         })
+         it('matches both', () => {
+            expectToMatch(router.parent)
+            expectToMatchExact(router.parent.child)
+         })
       })
    })
 

@@ -5,6 +5,12 @@ import { BehaviorSubject } from 'rxjs'
 import { RouterConfig } from './RouterConfig'
 import { TreeRouter } from './TreeRouter'
 
+interface RouteMatch {
+   id: string
+   newState: {}
+   updateRouter: () => void
+}
+
 class NestedBrowserRouter {
    public readonly path: string
    private readonly _pathParser: Path
@@ -88,54 +94,79 @@ class NestedBrowserRouter {
       //          this._handlePushWhenNotMatching(params)
       //       }
    }
-   private _testUrl(url: string): boolean {
+   private _testUrl(url: string): RouteMatch | null {
       const partialMatch = this._pathParser.partialTest(url)
       if (Boolean(partialMatch)) {
          const exactMatch = this._pathParser.test(url)
          if (Boolean(exactMatch)) {
-            this._matchExactUrl(url, exactMatch)
+            return this._matchExactUrl(url, exactMatch)
          } else {
-            this._matchUrl(url, partialMatch)
+            return this._matchUrl(url, partialMatch)
          }
-         return true
+         return {
+            id: this._routeId,
+            newState: {
+               // TODO
+            },
+            updateRouter: () => {
+               // TODO implement
+            }
+         }
       } else {
          this._unmatch()
-         return false
+         return null
       }
    }
-   private _matchExactUrl(url: string, exactMatch: any) {
+   private _matchExactUrl(url: string, exactMatch: any): RouteMatch {
       const newMatch =
          Object.keys(exactMatch).length > 0
             ? { exact: true, params: exactMatch }
             : { exact: true }
       const newState = {
-         //  ...this.currentState,
+         // TODO ?
+         //    ...this.currentState,
          match: newMatch
       }
-      this._state$.next(newState)
-      this._match$.next(newState.match)
+      return {
+         id: this._routeId,
+         newState,
+         updateRouter: () => {
+            this._state$.next(newState)
+            this._match$.next(newState.match)
+         }
+      }
    }
-   private _matchUrl(url: string, matchedParams: any) {
-      const newState =
+   private _matchUrl(url: string, matchedParams: any): RouteMatch | null {
+      const newState: any =
          Object.keys(matchedParams).length > 0
             ? { match: { exact: false, params: matchedParams } }
             : {
                  match: { exact: false }
               }
-      let hasMatched = false
+      let hasMatched: RouteMatch | null = null
       for (
          let i = 0, routeCount = this._nestedRouteIds.length;
          i < routeCount;
          i++
       ) {
-         //  if (hasMatched) {
-         //     this._nestedRouters[i]._unmatch()
-         //  } else {
-         hasMatched = this._nestedRouters[i]._testUrl(url)
-         //  }
+         if (hasMatched !== null) {
+            //  this._nestedRouters[i]._unmatch()
+         } else {
+            hasMatched = this._nestedRouters[i]._testUrl(url)
+         }
       }
-      this._state$.next(newState)
-      this._match$.next(newState.match)
+      if (hasMatched !== null) {
+         newState[hasMatched.id] = hasMatched.newState
+         return {
+            id: this._routeId,
+            newState,
+            updateRouter: () => {
+               this._state$.next(newState)
+               this._match$.next(newState.match)
+               hasMatched!.updateRouter()
+            }
+         }
+      } else return null
    }
    //    private _handlePushWhenMatchingExact(params: any) {
    //       if (params === undefined) return
@@ -347,16 +378,16 @@ export function createBrowserRouter<Config extends RouterConfig>(
       nestedRouters.push(nestedRouter)
       router[routeId] = nestedRouter
    })
-   const testMatchOnChildren = (location: Location) => {
-      let hasMatched = false
+   const testMatchOnChildren = (location: Location): RouteMatch | null => {
+      let childMatch: RouteMatch | null = null
       for (let i = 0; i < routeCount; i++) {
-         if (hasMatched) {
-            nestedRouters[i]._unmatch()
+         if (childMatch === null) {
+            childMatch = nestedRouters[i]._testUrl(location.pathname)
          } else {
-            hasMatched = nestedRouters[i]._testUrl(location.pathname)
+            nestedRouters[i]._unmatch()
          }
       }
-      return hasMatched
+      return childMatch
    }
    const retrieveNestedStates = () => {
       const newState = {} as any
@@ -365,13 +396,28 @@ export function createBrowserRouter<Config extends RouterConfig>(
       })
       return newState
    }
-   testMatchOnChildren(history.location)
-   const initialState = retrieveNestedStates()
+   const initialMatch = testMatchOnChildren(history.location)
+   const initialState =
+      initialMatch !== null
+         ? {
+              ...retrieveNestedStates(),
+              [initialMatch.id]: initialMatch.newState
+           }
+         : {
+              ...retrieveNestedStates()
+           }
    router._state$ = new BehaviorSubject(initialState)
+   if (initialMatch !== null) initialMatch.updateRouter()
    history.listen(location => {
-      const hasMatched = testMatchOnChildren(location)
-      if (hasMatched) {
-         const newState = retrieveNestedStates()
+      const childMatch = testMatchOnChildren(location)
+      const newState = {
+         ...retrieveNestedStates()
+      } as any
+      if (childMatch !== null) {
+         newState[childMatch.id] = childMatch.newState
+         router._state$.next(newState)
+         childMatch.updateRouter()
+      } else {
          router._state$.next(newState)
       }
    })

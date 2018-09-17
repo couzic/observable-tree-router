@@ -1,6 +1,6 @@
 {
   "name": "observable-tree-router",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Type-safe, state-oriented, reactive, hierarchical router for single page applications",
   "keywords": [
     "router",
