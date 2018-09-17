@@ -93,9 +93,9 @@ class NestedBrowserRouter {
       if (Boolean(partialMatch)) {
          const exactMatch = this._pathParser.test(url)
          if (Boolean(exactMatch)) {
-            this._matchExactUrl(url)
+            this._matchExactUrl(url, exactMatch)
          } else {
-            this._matchUrl(url)
+            this._matchUrl(url, partialMatch)
          }
          return true
       } else {
@@ -103,19 +103,25 @@ class NestedBrowserRouter {
          return false
       }
    }
-   private _matchExactUrl(url: string) {
+   private _matchExactUrl(url: string, exactMatch: any) {
+      const newMatch =
+         Object.keys(exactMatch).length > 0
+            ? { exact: true, params: exactMatch }
+            : { exact: true }
       const newState = {
          //  ...this.currentState,
-         match: { exact: true }
+         match: newMatch
       }
       this._state$.next(newState)
       this._match$.next(newState.match)
    }
-   private _matchUrl(url: string) {
-      const newState = {
-         //  ...this.currentState,
-         match: { exact: false }
-      }
+   private _matchUrl(url: string, matchedParams: any) {
+      const newState =
+         Object.keys(matchedParams).length > 0
+            ? { match: { exact: false, params: matchedParams } }
+            : {
+                 match: { exact: false }
+              }
       let hasMatched = false
       for (
          let i = 0, routeCount = this._nestedRouteIds.length;

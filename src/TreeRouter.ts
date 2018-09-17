@@ -11,7 +11,10 @@ import { RouterConfig } from './RouterConfig'
 
 interface NoParamsLeafRouter<Config extends AnyRouteConfig> {
    push(): void
-   path: string
+   readonly path: string
+   readonly isMatching: boolean
+   readonly isMatchingExact: boolean
+   readonly isMatchingChild: boolean
    readonly state$: Observable<
       {
          readonly [K in keyof NoParamsLeafRouteState<
@@ -33,7 +36,10 @@ type NoParamsBranchRouter<
    Config extends AnyRouteWithNestedRoutesConfig
 > = Router<Config['_nested']> & {
    push(): void
-   path: string
+   readonly path: string
+   readonly isMatching: boolean
+   readonly isMatchingExact: boolean
+   readonly isMatchingChild: boolean
    readonly state$: Observable<
       {
          readonly [K in keyof NoParamsBranchRouteState<
@@ -53,7 +59,10 @@ type NoParamsBranchRouter<
 
 interface LeafRouter<Config extends AnyRouteWithParamsConfig> {
    push(params: { [P in Config['_params']]: string }): void
-   path: string
+   readonly path: string
+   readonly isMatching: boolean
+   readonly isMatchingExact: boolean
+   readonly isMatchingChild: boolean
    readonly state$: Observable<
       {
          readonly [K in keyof LeafRouteState<Config>]: LeafRouteState<Config>[K]
@@ -72,7 +81,10 @@ type BranchRouter<
    Config extends AnyRouteWithParamsConfig & AnyRouteWithNestedRoutesConfig
 > = {
    push(params: { [P in Config['_params']]: string }): void
-   path: string
+   readonly path: string
+   readonly isMatching: boolean
+   readonly isMatchingExact: boolean
+   readonly isMatchingChild: boolean
    readonly state$: Observable<
       {
          readonly [K in keyof BranchRouteState<Config>]: BranchRouteState<
@@ -156,9 +168,6 @@ type Router<Config extends RouterConfig> = {
 export type TreeRouter<Config extends RouterConfig> = Router<Config> & {
    readonly state$: Observable<RouterState<Config>>
    readonly currentState: RouterState<Config>
-   readonly isMatching: boolean
-   readonly isMatchingExact: boolean
-   readonly isMatchingChild: boolean
 }
 
 interface NoParamsLeafRouteState<Config extends AnyRouteConfig> {

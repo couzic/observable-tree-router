@@ -135,32 +135,6 @@ describe('createBrowserRouter', () => {
       })
    })
 
-   describe('given overlapping routes', () => {
-      const createRouter = (h = history) =>
-         createBrowserRouter(h, {
-            user: route({
-               path: '/user'
-            }),
-            userDetail: route({
-               path: '/user/detail'
-            })
-         })
-      let router: ReturnType<typeof createRouter>
-
-      beforeEach(() => {
-         router = createRouter()
-      })
-
-      xit('', () => {
-         //  router.userDetail.push()
-         //  console.log(router.user.currentState)
-         //  console.log(router.userDetail.currentState)
-         // //  router.user.push()
-         //  console.log(router.user.currentState)
-         //  console.log(router.userDetail.currentState)
-      })
-   })
-
    describe('given nested route', () => {
       const createRouter = (h = history) =>
          createBrowserRouter(h, {
@@ -192,7 +166,7 @@ describe('createBrowserRouter', () => {
       })
    })
 
-   describe('simple route with params', () => {
+   describe('given route with params', () => {
       const createRouter = (h = history) =>
          createBrowserRouter(h, {
             user: route({
@@ -215,9 +189,9 @@ describe('createBrowserRouter', () => {
          expect(history.push).to.have.been.calledWith('/user/id')
       })
 
-      xit('matches params when history pushes path', () => {
+      it('matches params when history pushes path', () => {
          history.push('/user/userId')
-         expectToMatch(router.user, { userId: 'userId' })
+         expectToMatchExact(router.user, { userId: 'userId' })
       })
    })
 
@@ -259,26 +233,21 @@ describe('createBrowserRouter', () => {
          expect(history.push).to.have.been.calledWith('/user/1/post/2')
       })
 
-      xit('matches nested route when navigated to', () => {
-         const params = { userId: 'userId', postId: 'postId' }
+      it('matches parent route params when navigated to nested route', () => {
+         const userParams = { userId: 'userId' }
+         const postParams = { ...userParams, postId: 'postId' }
 
-         router.user.post.push(params)
+         router.user.post.push(postParams)
 
-         expectToMatch(router.user, params)
-         expectToMatch(router.user.post, params)
-
-         //  expect(userMatches).to.deep.equal([undefined, { params }])
-         //  expect(postMatches).to.deep.equal([undefined, { params }])
+         expectToMatch(router.user, userParams)
       })
 
-      xit('matches nested route when history pushes path', () => {
-         const params = { userId: 'userId', postId: 'postId' }
-         history.push(`/user/${params.userId}/post/${params.postId}`)
-         expectToMatch(router.user, params)
-         expectToMatch(router.user.post, params)
-
-         //  expect(userMatches).to.deep.equal([undefined, { params }])
-         //  expect(postMatches).to.deep.equal([undefined, { params }])
+      it('matches nested route when history pushes path', () => {
+         const userParams = { userId: 'userId' }
+         const postParams = { ...userParams, postId: 'postId' }
+         history.push(`/user/${userParams.userId}/post/${postParams.postId}`)
+         expectToMatch(router.user, userParams)
+         expectToMatchExact(router.user.post, postParams)
       })
    })
 
