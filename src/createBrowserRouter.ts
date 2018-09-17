@@ -18,7 +18,6 @@ class NestedBrowserRouter {
    private readonly _match$: BehaviorSubject<any>
    private readonly _nestedRouteIds: string[] = []
    private readonly _nestedRouters: NestedBrowserRouter[] = []
-   //    private readonly _params: string[] | undefined
    //    // TODO Make sure no route has same name as one of those public methods
    public get currentState() {
       return this._state$.getValue()
@@ -96,7 +95,7 @@ class NestedBrowserRouter {
          Object.keys(exactMatch).length > 0
             ? { exact: true, params: exactMatch }
             : { exact: true }
-      // TODO unmmatch children ?
+      if (this.isMatchingChild) this._unmatchChildren()
       const newState = {
          ...this._retrieveNestedRouteStates(),
          match: newMatch
@@ -111,12 +110,6 @@ class NestedBrowserRouter {
       }
    }
    private _matchUrl(url: string, matchedParams: any): RouteMatch | null {
-      const newState: any =
-         Object.keys(matchedParams).length > 0
-            ? { match: { exact: false, params: matchedParams } }
-            : {
-                 match: { exact: false }
-              }
       let hasMatched: RouteMatch | null = null
       for (
          let i = 0, routeCount = this._nestedRouteIds.length;
@@ -128,6 +121,16 @@ class NestedBrowserRouter {
          } else {
             hasMatched = this._nestedRouters[i]._testUrl(url)
          }
+      }
+      const newMatch =
+         Object.keys(matchedParams).length > 0
+            ? { exact: false, params: matchedParams }
+            : {
+                 exact: false
+              }
+      const newState: any = {
+         ...this._retrieveNestedRouteStates(),
+         match: newMatch
       }
       if (hasMatched !== null) {
          newState[hasMatched.id] = hasMatched.newState
@@ -309,8 +312,8 @@ class NestedBrowserRouter {
    //       }
    //    }
    private _unmatch() {
-      if (this.currentState.match) {
-         // this._unmatchChildren()
+      if (this.isMatching) {
+         this._unmatchChildren()
          const newState = {
             match: null,
             ...this._retrieveNestedRouteStates()
@@ -319,11 +322,11 @@ class NestedBrowserRouter {
          this._match$.next(newState.match)
       }
    }
-   //    private _unmatchChildren() {
-   //       this._nestedRouters.forEach(nestedRouter => {
-   //          nestedRouter._unmatch()
-   //       })
-   //    }
+   private _unmatchChildren() {
+      this._nestedRouters.forEach(nestedRouter => {
+         nestedRouter._unmatch()
+      })
+   }
 }
 
 export function createBrowserRouter<Config extends RouterConfig>(
