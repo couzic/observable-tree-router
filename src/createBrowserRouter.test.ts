@@ -176,6 +176,12 @@ describe('createBrowserRouter', () => {
             expectToMatchExact(router.parent)
             expectNotToMatch(router.parent.child)
          })
+
+         it('still has child in state', () => {
+            expect(router.parent.currentState.child).to.deep.equal({
+               match: null
+            })
+         })
       })
 
       describe('when child is navigated to', () => {
@@ -247,14 +253,9 @@ describe('createBrowserRouter', () => {
             })
          })
       let router: ReturnType<typeof createRouter>
-      //   let userMatches: any
-      //   let postMatches: any
 
       beforeEach(() => {
          router = createRouter()
-
-         //  userMatches = toArray(router.user.match$)
-         //  postMatches = toArray(router.user.post.match$)
       })
 
       it('has path', () => {

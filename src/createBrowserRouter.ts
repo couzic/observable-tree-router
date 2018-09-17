@@ -47,23 +47,13 @@ class NestedBrowserRouter {
    }
    constructor(
       private readonly _routeId: string,
-      config: any,
-      private readonly _parentRouter: NestedBrowserRouter,
+      readonly config: any,
+      readonly _parentRouter: NestedBrowserRouter,
       private readonly _history: History
    ) {
       const relativePath = (config && config.path) || '/' + _routeId
       this.path = _parentRouter.path + relativePath
       this._pathParser = new Path(this.path)
-      //       if (
-      //          _parentRouter._params !== undefined ||
-      //          (config && config.params !== undefined && config.params.length > 0)
-      //       ) {
-      //          this._params = [
-      //             ...(_parentRouter._params || []),
-      //             ...((config && config.params) || [])
-      //             // TODO Remove duplicates (in case a param is defined in both parent and child)
-      //          ]
-      //       }
       const initialState = { match: null }
       if (config && config.nested) {
          this._nestedRouteIds = Object.keys(config.nested)
@@ -86,13 +76,6 @@ class NestedBrowserRouter {
    public push(params: any) {
       const url = this._pathParser.build(params)
       this._history.push(url)
-      //       if (this.isMatchingExact) {
-      //          this._handlePushWhenMatchingExact(params)
-      //       } else if (this.isMatchingChild) {
-      //          this._handlePushWhenMatchingChild(params)F
-      //       } else {
-      //          this._handlePushWhenNotMatching(params)
-      //       }
    }
    private _testUrl(url: string): RouteMatch | null {
       const partialMatch = this._pathParser.partialTest(url)
@@ -102,15 +85,6 @@ class NestedBrowserRouter {
             return this._matchExactUrl(url, exactMatch)
          } else {
             return this._matchUrl(url, partialMatch)
-         }
-         return {
-            id: this._routeId,
-            newState: {
-               // TODO
-            },
-            updateRouter: () => {
-               // TODO implement
-            }
          }
       } else {
          this._unmatch()
@@ -122,9 +96,9 @@ class NestedBrowserRouter {
          Object.keys(exactMatch).length > 0
             ? { exact: true, params: exactMatch }
             : { exact: true }
+      // TODO unmmatch children ?
       const newState = {
-         // TODO ?
-         //    ...this.currentState,
+         ...this._retrieveNestedRouteStates(),
          match: newMatch
       }
       return {
