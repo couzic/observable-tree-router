@@ -385,7 +385,7 @@ export function createBrowserRouter<Config extends RouterConfig>(
            }
    router._state$ = new BehaviorSubject(initialState)
    if (initialMatch !== null) initialMatch.updateRouter()
-   history.listen(location => {
+   const handleNewLocation = (location: Location<any>) => {
       const childMatch = testMatchOnChildren(location)
       const newState = {
          ...retrieveNestedStates()
@@ -397,7 +397,15 @@ export function createBrowserRouter<Config extends RouterConfig>(
       } else {
          router._state$.next(newState)
       }
-   })
+   }
+   history.listen(handleNewLocation)
+   try {
+      window.addEventListener('load', event => {
+         handleNewLocation(history.location)
+      })
+   } catch (e) {
+      handleNewLocation(history.location) // Is this necessary ?
+   }
    //    router._onChildMatch = (childId: string, newChildState: any) => {
    //       router._unmatchAll()
    //       const newState = {} as any
