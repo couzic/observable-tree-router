@@ -117,8 +117,7 @@ class NestedBrowserRouter {
          i++
       ) {
          if (hasMatched !== null) {
-            // TODO
-            //  this._nestedRouters[i]._unmatch()
+            this._nestedRouters[i]._unmatch()
          } else {
             hasMatched = this._nestedRouters[i]._testUrl(url)
          }

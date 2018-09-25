@@ -289,5 +289,46 @@ describe('createBrowserRouter', () => {
       })
    })
 
+   describe('given parent with two children, each with a grandchild', () => {
+      const createRouter = () =>
+         createBrowserRouter(history, {
+            parent: route({
+               nested: {
+                  firstChild: route({
+                     nested: {
+                        firstGrandChild: route({
+                           params: ['param']
+                        })
+                     }
+                  }),
+                  secondChild: route({
+                     nested: {
+                        secondGrandChild: route({
+                           params: ['param']
+                        })
+                     }
+                  })
+               }
+            })
+         })
+      type Router = ReturnType<typeof createRouter>
+      let router: Router
+      beforeEach(() => {
+         router = createRouter()
+      })
+      describe('when navigated to second grandchild then first grandchild', () => {
+         beforeEach(() => {
+            router.parent.secondChild.secondGrandChild.push({ param: 'param' })
+            router.parent.firstChild.firstGrandChild.push({ param: 'param' })
+         })
+         it('unmatches second grandchild', () => {
+            expectToMatchExact(router.parent.firstChild.firstGrandChild)
+            expectToMatch(router.parent.firstChild)
+            expectNotToMatch(router.parent.secondChild.secondGrandChild)
+            expectNotToMatch(router.parent.secondChild)
+         })
+      })
+   })
+
    xit('when changing params of route with path it matches new params')
 })
