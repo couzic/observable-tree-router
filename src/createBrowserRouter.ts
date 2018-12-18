@@ -200,7 +200,9 @@ export function createBrowserRouter<Config extends RouterConfig>(
       let childMatch: RouteMatch | null = null
       for (let i = 0; i < routeCount; i++) {
          if (childMatch === null) {
-            childMatch = nestedRouters[i]._testUrl(location.pathname)
+            const nestedRoute = nestedRouters[i]
+            childMatch = nestedRoute._testUrl(location.pathname)
+            if (childMatch === null) nestedRoute._unmatch()
          } else {
             nestedRouters[i]._unmatch()
          }

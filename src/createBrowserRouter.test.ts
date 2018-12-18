@@ -330,5 +330,32 @@ describe('createBrowserRouter', () => {
       })
    })
 
+   describe('given two overlapping sibling base routes', () => {
+      const createRouter = () =>
+         createBrowserRouter(createMemoryHistory(), {
+            home: route({
+               path: '/'
+            }),
+            second: route({
+               path: '/second'
+            })
+         })
+      type Router = ReturnType<typeof createRouter>
+      let router: Router
+      beforeEach(() => {
+         router = createRouter()
+      })
+      it('initially matches home', () => {
+         expect(router.home.isMatchingExact).to.be.true
+      })
+      describe('when navigating to sibling', () => {
+         beforeEach(() => {
+            router.second.push()
+         })
+         it('does not match home', () => {
+            expect(router.home.isMatching).to.be.false
+         })
+      })
+   })
    xit('when changing params of route with path it matches new params')
 })
