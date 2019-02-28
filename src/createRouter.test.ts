@@ -22,16 +22,18 @@ testCreateRouter(createMemoryHistoryBrowserRouter, 'createBrowserRouter')
 
 function testCreateRouter(sut: typeof createMemoryRouter, name?: string) {
    describe(name || sut.name, () => {
-      const r = sut({
-         home: route(),
-         epj: route({
-            params: ['id'],
-            nested: { profile: route() }
+      let r
+      beforeEach(() => {
+         r = sut({
+            home: route(),
+            epj: route({
+               params: ['id'],
+               nested: { profile: route() }
+            })
          })
-      })
-
-      r.epj.profile.push({
-         id: '123'
+         r.epj.profile.push({
+            id: '123'
+         })
       })
 
       describe('given route and other route', () => {

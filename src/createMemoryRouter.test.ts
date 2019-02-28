@@ -21,8 +21,10 @@ describe('createMemoryRouter', () => {
       })
    })
 
-   r.epj.profile.push({
-      id: '123'
+   beforeEach(() => {
+      r.epj.profile.push({
+         id: '123'
+      })
    })
 
    describe('given route and other route', () => {
