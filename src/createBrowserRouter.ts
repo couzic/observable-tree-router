@@ -76,6 +76,10 @@ class NestedBrowserRouter {
       const url = this._pathParser.build(params)
       this._history.push(url)
    }
+   public replace(params: any) {
+      const url = this._pathParser.build(params)
+      this._history.replace(url)
+   }
    private _testUrl(url: string): RouteMatch | null {
       const partialMatch = this._pathParser.partialTest(url)
       if (Boolean(partialMatch)) {

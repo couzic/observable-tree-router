@@ -332,7 +332,7 @@ describe('createBrowserRouter', () => {
 
    describe('given two overlapping sibling base routes', () => {
       const createRouter = () =>
-         createBrowserRouter(createMemoryHistory(), {
+         createBrowserRouter(history, {
             home: route({
                path: '/'
             }),
@@ -357,5 +357,37 @@ describe('createBrowserRouter', () => {
          })
       })
    })
+
+   describe('given three routes A B and C', () => {
+      const createRouter = () =>
+         createBrowserRouter(history, {
+            A: route({
+               path: '/A'
+            }),
+            B: route({
+               path: '/B'
+            }),
+            C: route({
+               path: '/C'
+            })
+         })
+      type Router = ReturnType<typeof createRouter>
+      let router: Router
+      beforeEach(() => {
+         router = createRouter()
+      })
+      describe('when navigating to A, then B, then replacing with C, then going back', () => {
+         beforeEach(() => {
+            router.A.push()
+            router.B.push()
+            router.C.replace()
+            history.goBack()
+         })
+         it('goes to A', () => {
+            expect(router.A.isMatchingExact).to.be.true
+         })
+      })
+   })
+
    xit('when changing params of route with path it matches new params')
 })

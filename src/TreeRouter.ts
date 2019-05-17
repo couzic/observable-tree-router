@@ -11,6 +11,7 @@ import { RouterConfig } from './RouterConfig'
 
 interface NoParamsLeafRouter<Config extends AnyRouteConfig> {
    push(): void
+   replace(): void
    readonly path: string
    readonly isMatching: boolean
    readonly isMatchingExact: boolean
@@ -36,6 +37,7 @@ type NoParamsBranchRouter<
    Config extends AnyRouteWithNestedRoutesConfig
 > = Router<Config['_nested']> & {
    push(): void
+   replace(): void
    readonly path: string
    readonly isMatching: boolean
    readonly isMatchingExact: boolean
@@ -59,6 +61,7 @@ type NoParamsBranchRouter<
 
 interface LeafRouter<Config extends AnyRouteWithParamsConfig> {
    push(params: { [P in Config['_params']]: string }): void
+   replace(params: { [P in Config['_params']]: string }): void
    readonly path: string
    readonly isMatching: boolean
    readonly isMatchingExact: boolean
@@ -81,6 +84,7 @@ type BranchRouter<
    Config extends AnyRouteWithParamsConfig & AnyRouteWithNestedRoutesConfig
 > = {
    push(params: { [P in Config['_params']]: string }): void
+   replace(params: { [P in Config['_params']]: string }): void
    readonly path: string
    readonly isMatching: boolean
    readonly isMatchingExact: boolean
