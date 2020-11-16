@@ -1,5 +1,5 @@
 import { History, Location } from 'history'
-import Path from 'path-parser'
+import { Path } from 'path-parser'
 import { BehaviorSubject } from 'rxjs'
 
 import { RouterConfig } from './RouterConfig'
@@ -233,7 +233,7 @@ export function createBrowserRouter<Config extends RouterConfig>(
            }
    router._state$ = new BehaviorSubject(initialState)
    if (initialMatch !== null) initialMatch.updateRouter()
-   history.listen(location => {
+   history.listen(({ location }) => {
       const childMatch = testMatchOnChildren(location)
       const newState = {
          ...retrieveNestedStates()

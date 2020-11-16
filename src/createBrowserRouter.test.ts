@@ -381,7 +381,7 @@ describe('createBrowserRouter', () => {
             router.A.push()
             router.B.push()
             router.C.replace()
-            history.goBack()
+            history.back()
          })
          it('goes to A', () => {
             expect(router.A.isMatchingExact).to.be.true
