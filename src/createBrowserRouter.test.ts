@@ -89,7 +89,10 @@ describe('createBrowserRouter', () => {
 
             router.home.push()
 
-            expect(history.push).to.have.been.calledWith('/')
+            expect(history.push).to.have.been.calledWith({
+               pathname: '/',
+               search: ''
+            })
          })
          describe('then navigated to other route', () => {
             it('unmatches first route', () => {
@@ -229,7 +232,10 @@ describe('createBrowserRouter', () => {
 
          router.user.push({ userId: 'id' })
 
-         expect(history.push).to.have.been.calledWith('/user/id')
+         expect(history.push).to.have.been.calledWith({
+            pathname: '/user/id',
+            search: ''
+         })
       })
 
       it('matches params when history pushes path', () => {
@@ -268,7 +274,10 @@ describe('createBrowserRouter', () => {
 
          router.user.post.push({ userId: '1', postId: '2' })
 
-         expect(history.push).to.have.been.calledWith('/user/1/post/2')
+         expect(history.push).to.have.been.calledWith({
+            pathname: '/user/1/post/2',
+            search: ''
+         })
       })
 
       it('matches parent route params when navigated to nested route', () => {
@@ -385,6 +394,48 @@ describe('createBrowserRouter', () => {
          })
          it('goes to A', () => {
             expect(router.A.isMatchingExact).to.be.true
+         })
+      })
+   })
+
+   describe('query params', () => {
+      const createRouter = () =>
+         createBrowserRouter(history, {
+            home: route({
+               path: '/'
+            }),
+            plain: route({ path: '/plain' }),
+            rich: route({
+               path: '/rich?multi',
+               params: ['multi']
+            })
+         })
+      type Router = ReturnType<typeof createRouter>
+      let router: Router
+      beforeEach(() => {
+         router = createRouter()
+      })
+      it('initially matches home', () => {
+         expect(router.home.isMatchingExact).to.be.true
+      })
+      describe('when navigating to sibling', () => {
+         beforeEach(() => {
+            router.rich.push({ multi: 'true' })
+         })
+         it('matches rich', () => {
+            expect(router.rich.isMatchingExact).to.be.true
+            console.log(router.currentState)
+            console.log(history.location)
+         })
+         describe('when navigating to plain', () => {
+            beforeEach(() => {
+               router.plain.push()
+            })
+            it('matches plain', () => {
+               expect(router.plain.isMatchingExact).to.be.true
+               console.log(router.currentState)
+               console.log(history.location)
+            })
          })
       })
    })

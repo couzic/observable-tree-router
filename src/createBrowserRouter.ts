@@ -56,7 +56,7 @@ class NestedBrowserRouter {
       const initialState = { match: null }
       if (config && config.nested) {
          this._nestedRouteIds = Object.keys(config.nested)
-         this._nestedRouteIds.forEach(nestedRouteId => {
+         this._nestedRouteIds.forEach((nestedRouteId) => {
             const nestedRouteConfig = config.nested[nestedRouteId]
             const nestedRouter = new NestedBrowserRouter(
                nestedRouteId,
@@ -74,7 +74,7 @@ class NestedBrowserRouter {
    }
    public push(params: any) {
       const url = this._pathParser.build(params)
-      this._history.push(url)
+      this._history.push({ pathname: url, search: '' })
    }
    public replace(params: any) {
       const url = this._pathParser.build(params)
@@ -151,7 +151,7 @@ class NestedBrowserRouter {
    }
    private _retrieveNestedRouteStates() {
       const nestedStates = {} as any
-      this._nestedRouteIds.forEach(nestedRouteId => {
+      this._nestedRouteIds.forEach((nestedRouteId) => {
          nestedStates[nestedRouteId] = (this as any)[nestedRouteId].currentState
       })
       return nestedStates
@@ -168,7 +168,7 @@ class NestedBrowserRouter {
       }
    }
    private _unmatchChildren() {
-      this._nestedRouters.forEach(nestedRouter => {
+      this._nestedRouters.forEach((nestedRouter) => {
          nestedRouter._unmatch()
       })
    }
@@ -190,7 +190,7 @@ export function createBrowserRouter<Config extends RouterConfig>(
    const routeIds = Object.keys(config)
    const routeCount = routeIds.length
    const nestedRouters: any[] = []
-   routeIds.forEach(routeId => {
+   routeIds.forEach((routeId) => {
       const nestedRouter = new NestedBrowserRouter(
          routeId,
          config[routeId],
@@ -216,7 +216,7 @@ export function createBrowserRouter<Config extends RouterConfig>(
    }
    const retrieveNestedStates = () => {
       const newState = {} as any
-      nestedRouters.forEach(nestedRouter => {
+      nestedRouters.forEach((nestedRouter) => {
          newState[nestedRouter._routeId] = nestedRouter.currentState
       })
       return newState
